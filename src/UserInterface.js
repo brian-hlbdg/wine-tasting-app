@@ -206,7 +206,7 @@ const UserInterface = () => {
             type="text"
             placeholder="Event Code (e.g. ABC123)"
             value={eventCode}
-            onChange={(e) => setEventCode(e.target.value.toUpperCase())}
+            // onChange={(e) => setEventCode(e.target.value.toUpperCase())}
             className="w-full p-4 text-center text-lg font-mono border rounded-lg focus:ring-2 focus:ring-purple-500"
             maxLength="6"
           />
