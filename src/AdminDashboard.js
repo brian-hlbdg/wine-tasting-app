@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { Plus, Wine, LogOut, Calendar, MapPin, Edit, Trash2, BarChart3 } from 'lucide-react';
 import AdminAnalytics from './AdminAnalytics';
+import CreateEventForm from './CreateEventForm';
 
 const AdminDashboard = () => {
   const [user, setUser] = useState(null);
@@ -591,7 +592,16 @@ const CreateEventForm = () => (
       </nav>
       <main className="max-w-6xl mx-auto p-4">
         {currentView === 'events' && <EventsList />}
-        {currentView === 'create-event' && <CreateEventForm />}
+        {currentView === 'create-event' && (
+          <CreateEventForm 
+            user={user}
+            onBack={() => setCurrentView('events')}
+            onEventCreated={() => {
+              setCurrentView('events');
+              loadEvents();
+            }}
+          />
+        )}
         {currentView === 'analytics' && (
           <div>
             <div className="flex items-center gap-3 mb-4">
