@@ -148,6 +148,8 @@ const UserInterface = () => {
       }
   
       console.log('Rating saved successfully:', ratingData);
+      console.log('Saving rating with user ID:', userId);
+      console.log('Current user object:', user);
   
       // Save descriptors if any were selected
       if (selectedDescriptors.length > 0) {
