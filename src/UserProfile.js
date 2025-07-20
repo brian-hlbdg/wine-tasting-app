@@ -21,7 +21,15 @@ const UserProfile = ({ userId }) => {
 
   const loadUserProfile = async () => {
     try {
-      // Get all user ratings
+      console.log('Loading profile for user ID:', userId);
+      
+      // First, let's see what user IDs exist in the ratings table
+      const { data: allRatings } = await supabase
+      .from('user_wine_ratings')
+      .select('user_id, rating, event_wines(wine_name)');
+      
+      console.log('All ratings in database:', allRatings);
+    // Get all user ratings
       const { data: ratings, error } = await supabase
         .from('user_wine_ratings')
         .select(`
@@ -39,12 +47,16 @@ const UserProfile = ({ userId }) => {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
+      console.log('User ratings found:', ratings);
+      console.log('Error if any:', error);
+
       if (error) {
         console.error('Error loading user profile:', error);
         return;
       }
 
       if (!ratings || ratings.length === 0) {
+        console.log('No ratings found for user:', userId);
         setLoading(false);
         return;
       }
