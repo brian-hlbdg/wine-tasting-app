@@ -36,10 +36,6 @@ const AdminDashboard = () => {
     setLoading(false);
   };
 
-  const handleEventFormChange = (field, value) => {
-    setEventForm(prev => ({ ...prev, [field]: value }));
-  };
-
   // Add these handler functions to your AdminDashboard component:
 const updateEventField = (field, value) => {
   setEventForm(prev => ({ ...prev, [field]: value }));
