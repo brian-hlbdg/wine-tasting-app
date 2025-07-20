@@ -16,8 +16,78 @@ const UserProfile = ({ userId }) => {
   useEffect(() => {
     if (userId) {
       loadUserProfile();
+    } else {
+      loadDemoUserProfile();
     }
   }, [userId]);
+
+  const loadDemoUserProfile = async () => {
+    try {
+      console.log('No user ID provided, looking for recent ratings...');
+      
+      // Get the most recent rating to find a user ID
+      const { data: recentRatings } = await supabase
+        .from('user_wine_ratings')
+        .select('user_id')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (recentRatings && recentRatings.length > 0) {
+        const foundUserId = recentRatings[0].user_id;
+        console.log('Found recent user ID:', foundUserId);
+        // Now load profile for this user
+        loadUserProfileForId(foundUserId);
+      } else {
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error finding demo user:', error);
+      setLoading(false);
+    }
+  };
+
+  const loadUserProfileForId = async (targetUserId) => {
+    // Your existing loadUserProfile logic, but use targetUserId instead of userId
+    try {
+      console.log('Loading profile for user ID:', targetUserId);
+      
+      const { data: ratings, error } = await supabase
+        .from('user_wine_ratings')
+        .select(`
+          *,
+          event_wines (
+            wine_name,
+            producer,
+            wine_type,
+            region
+          ),
+          user_wine_descriptors (
+            descriptors (name, category)
+          )
+        `)
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false });
+
+      console.log('User ratings found:', ratings);
+
+      if (error) {
+        console.error('Error loading user profile:', error);
+        return;
+      }
+
+      if (!ratings || ratings.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // ... rest of your existing profile calculation logic ...
+      
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadUserProfile = async () => {
     try {
@@ -26,7 +96,8 @@ const UserProfile = ({ userId }) => {
       // First, let's see what user IDs exist in the ratings table
       const { data: allRatings } = await supabase
       .from('user_wine_ratings')
-      .select('user_id, rating, event_wines(wine_name)');
+      .select('user_id, rating, event_wines(wine_name)')
+      .limit(1);
       
       console.log('All ratings in database:', allRatings);
     // Get all user ratings
