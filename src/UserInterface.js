@@ -464,7 +464,7 @@ const UserInterface = () => {
               <h1 className="text-xl font-bold">Wine Profile</h1>
             </div>
           </div>
-          <UserProfile userId={user?.id} />
+          <UserProfile userId="7b7479ec-1424-4ff1-8612-da550a0e682f" />
         </div>
       )}
     </div>

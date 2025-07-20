@@ -2,106 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { User, Wine, TrendingUp, Heart } from 'lucide-react';
 
-const UserProfile = ({ userId }) => {
+const UserProfile = () => {
   const [profile, setProfile] = useState({
     totalRatings: 0,
     averageRating: 0,
     favoriteWineTypes: [],
     favoriteDescriptors: [],
-    recentRatings: [],
-    recommendedWines: []
+    recentRatings: []
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (userId) {
-      loadUserProfile();
-    } else {
-      loadDemoUserProfile();
-    }
-  }, [userId]);
-
-  const loadDemoUserProfile = async () => {
-    try {
-      console.log('No user ID provided, looking for recent ratings...');
-      
-      // Get the most recent rating to find a user ID
-      const { data: recentRatings } = await supabase
-        .from('user_wine_ratings')
-        .select('user_id')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      
-      if (recentRatings && recentRatings.length > 0) {
-        const foundUserId = recentRatings[0].user_id;
-        console.log('Found recent user ID:', foundUserId);
-        // Now load profile for this user
-        loadUserProfileForId(foundUserId);
-      } else {
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('Error finding demo user:', error);
-      setLoading(false);
-    }
-  };
-
-  const loadUserProfileForId = async (targetUserId) => {
-    // Your existing loadUserProfile logic, but use targetUserId instead of userId
-    try {
-      console.log('Loading profile for user ID:', targetUserId);
-      
-      const { data: ratings, error } = await supabase
-        .from('user_wine_ratings')
-        .select(`
-          *,
-          event_wines (
-            wine_name,
-            producer,
-            wine_type,
-            region
-          ),
-          user_wine_descriptors (
-            descriptors (name, category)
-          )
-        `)
-        .eq('user_id', targetUserId)
-        .order('created_at', { ascending: false });
-
-      console.log('User ratings found:', ratings);
-
-      if (error) {
-        console.error('Error loading user profile:', error);
-        return;
-      }
-
-      if (!ratings || ratings.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      // ... rest of your existing profile calculation logic ...
-      
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadUserProfile();
+  }, []);
 
   const loadUserProfile = async () => {
     try {
-      console.log('Loading profile for user ID:', userId);
+      console.log('Finding most recent user ratings...');
       
-      // First, let's see what user IDs exist in the ratings table
-      const { data: allRatings } = await supabase
-      .from('user_wine_ratings')
-      .select('user_id, rating, event_wines(wine_name)')
-      .limit(1);
-      
-      console.log('All ratings in database:', allRatings);
-    // Get all user ratings
-      const { data: ratings, error } = await supabase
+      // Get all ratings and use the most recent user
+      const { data: allRatings, error } = await supabase
         .from('user_wine_ratings')
         .select(`
           *,
@@ -115,22 +35,23 @@ const UserProfile = ({ userId }) => {
             descriptors (name, category)
           )
         `)
-        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      console.log('User ratings found:', ratings);
-      console.log('Error if any:', error);
+      console.log('All ratings found:', allRatings);
 
       if (error) {
-        console.error('Error loading user profile:', error);
-        return;
-      }
-
-      if (!ratings || ratings.length === 0) {
-        console.log('No ratings found for user:', userId);
+        console.error('Error loading ratings:', error);
         setLoading(false);
         return;
       }
+
+      if (!allRatings || allRatings.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Use all ratings for now (or filter by most recent user)
+      const ratings = allRatings;
 
       // Calculate profile stats
       const totalRatings = ratings.length;
@@ -182,8 +103,7 @@ const UserProfile = ({ userId }) => {
         averageRating,
         favoriteWineTypes,
         favoriteDescriptors,
-        recentRatings,
-        recommendedWines: []
+        recentRatings
       });
 
     } catch (error) {
@@ -193,6 +113,7 @@ const UserProfile = ({ userId }) => {
     }
   };
 
+  // ... rest of your component render stays exactly the same
   if (loading) {
     return <div className="p-4">Loading your wine profile...</div>;
   }
