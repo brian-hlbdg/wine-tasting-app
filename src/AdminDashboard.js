@@ -235,6 +235,55 @@ const [wineForm, setWineForm] = useState({
   sommelier_notes: ''
 });
 
+// Separate input components to prevent re-rendering issues
+const TextInput = ({ value, onChange, placeholder, className, type = "text" }) => {
+  const [localValue, setLocalValue] = useState(value);
+  
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+  
+  const handleChange = (e) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    onChange(newValue);
+  };
+  
+  return (
+    <input
+      type={type}
+      value={localValue}
+      onChange={handleChange}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
+const TextArea = ({ value, onChange, placeholder, className, rows }) => {
+  const [localValue, setLocalValue] = useState(value);
+  
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+  
+  const handleChange = (e) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    onChange(newValue);
+  };
+  
+  return (
+    <textarea
+      value={localValue}
+      onChange={handleChange}
+      placeholder={placeholder}
+      className={className}
+      rows={rows}
+    />
+  );
+};
+
 // Stable form handlers to prevent re-rendering issues
 const handleEventFormChange = useCallback((field, value) => {
   setEventForm(prev => ({ ...prev, [field]: value }));
@@ -363,7 +412,7 @@ const CreateEventForm = () => (
   type="text"
   placeholder="Event name"
   value={eventForm.event_name}
-  onChange={(e) => handleEventFormChange('event_name', e.target.value)}
+  onChange={(value) => setEventForm(prev => ({ ...prev, event_name: value }))}
   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
 />
 
@@ -487,16 +536,16 @@ const CreateEventForm = () => (
   type="text"
   placeholder="Location"
   value={eventForm.location}
-  onChange={(e) => handleEventFormChange('location', e.target.value)}
+  onChange={(value) => setEventForm(prev => ({ ...prev, location: value }))}
   className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
 />
 
 <textarea
-  placeholder="Event description"
   value={eventForm.description}
-  onChange={(e) => handleEventFormChange('description', e.target.value)}
-  rows="3"
+  onChange={(value) => setEventForm(prev => ({ ...prev, description: value }))}
+  placeholder="Event description"
   className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+  rows={3}
 />
       </div>
     </div>
