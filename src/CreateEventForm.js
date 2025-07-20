@@ -137,8 +137,11 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
           <div className="grid grid-cols-2 gap-4">
             <input
               type="date"
-              value={eventForm.event_date}
-              onChange={(e) => setEventForm(prev => ({ ...prev, event_date: e.target.value }))}
+              value={eventForm.event_date || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setEventForm(prev => ({ ...prev, event_date: value }));
+              }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             />
             <input
@@ -185,34 +188,46 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
             <input
               type="text"
               placeholder="Producer"
-              value={wineForm.producer}
-              onChange={(e) => setWineForm(prev => ({ ...prev, producer: e.target.value }))}
+              value={wineForm.producer || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setWineForm(prev => ({ ...prev, producer: value }));
+              }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             />
           </div>
           
           <div className="grid grid-cols-3 gap-4">
-            <select
-              value={wineForm.wine_type}
-              onChange={(e) => setWineForm(prev => ({ ...prev, wine_type: e.target.value }))}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+          <select
+            value={wineForm.wine_type}
+            onChange={(e) => {
+                const value = e.target.value;
+                setWineForm(prev => ({ ...prev, wine_type: value }));
+            }}
+            className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             >
-              <option value="red">Red</option>
-              <option value="white">White</option>
-              <option value="rosé">Rosé</option>
-              <option value="sparkling">Sparkling</option>
-              <option value="dessert">Dessert</option>
+            <option value="red">Red</option>
+            <option value="white">White</option>
+            <option value="rosé">Rosé</option>
+            <option value="sparkling">Sparkling</option>
+            <option value="dessert">Dessert</option>
             </select>
             <input
               type="number"
               placeholder="Vintage"
-              value={wineForm.vintage}
-              onChange={(e) => setWineForm(prev => ({ ...prev, vintage: e.target.value }))}
+              value={wineForm.vintage || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setWineForm(prev => ({ ...prev, vintage: value }));
+              }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             />
             <select
               value={wineForm.price_point}
-              onChange={(e) => setWineForm(prev => ({ ...prev, price_point: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setWineForm(prev => ({ ...prev, price_point: value }));
+              }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             >
               <option value="Budget">Budget</option>
@@ -226,23 +241,32 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
             <input
               type="text"
               placeholder="Region"
-              value={wineForm.region}
-              onChange={(e) => setWineForm(prev => ({ ...prev, region: e.target.value }))}
+              value={wineForm.region || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setWineForm(prev => ({ ...prev, region: value }));
+              }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             />
             <input
               type="text"
               placeholder="Country"
-              value={wineForm.country}
-              onChange={(e) => setWineForm(prev => ({ ...prev, country: e.target.value }))}
+              value={wineForm.country || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setWineForm(prev => ({ ...prev, country: value }));
+              }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             />
           </div>
           
           <textarea
             placeholder="Sommelier notes"
-            value={wineForm.sommelier_notes}
-            onChange={(e) => setWineForm(prev => ({ ...prev, sommelier_notes: e.target.value }))}
+            value={wineForm.sommelier_notes || ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              setWineForm(prev => ({ ...prev, sommelier_notes: value }));
+            }}
             rows="2"
             className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
           />
