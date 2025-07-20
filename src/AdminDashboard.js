@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { Plus, Wine, LogOut, Calendar, MapPin, Edit, Trash2, BarChart3 } from 'lucide-react';
 import AdminAnalytics from './AdminAnalytics';
