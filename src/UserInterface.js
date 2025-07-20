@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Star, Wine, User, ArrowLeft, Plus } from 'lucide-react';
+import UserProfile from './UserProfile';
 
 const UserInterface = () => {
   const [currentView, setCurrentView] = useState('join'); // 'join', 'event', 'rating'
@@ -240,17 +241,25 @@ const UserInterface = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b p-4">
-        <div className="flex items-center gap-3 mb-2">
-          <Wine className="w-6 h-6 text-purple-600" />
-          <h1 className="text-xl font-bold">{event?.event_name}</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <Wine className="w-6 h-6 text-purple-600" />
+            <h1 className="text-xl font-bold">{event?.event_name}</h1>
+          </div>
+          <button
+            onClick={() => setCurrentView('profile')}
+            className="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200"
+          >
+            <User className="w-5 h-5" />
+          </button>
         </div>
         <div className="flex items-center justify-between text-sm text-gray-600">
           <span>{event?.location}</span>
           <span>{wines.length} wines to taste</span>
         </div>
       </div>
-
-      {/* Wine Grid */}
+      
+      {/* Rest of your wine grid stays the same */}
       <div className="p-4">
         <div className="grid gap-4">
           {wines.map((wine, index) => (
@@ -262,6 +271,7 @@ const UserInterface = () => {
                 setCurrentView('rating');
               }}
             >
+              {/* Your existing wine card content */}
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
@@ -439,6 +449,22 @@ const UserInterface = () => {
       {currentView === 'join' && <JoinEventScreen />}
       {currentView === 'event' && <EventWinesScreen />}
       {currentView === 'rating' && <WineRatingScreen />}
+      {currentView === 'profile' && (
+        <div className="min-h-screen bg-gray-50">
+          <div className="bg-white border-b p-4">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setCurrentView('event')}
+                className="p-2 hover:bg-gray-100 rounded"
+              >
+                ← Back to Event
+              </button>
+              <h1 className="text-xl font-bold">Wine Profile</h1>
+            </div>
+          </div>
+          <UserProfile userId={user?.id || 'demo-user'} />
+        </div>
+      )}
     </div>
   );
 };
