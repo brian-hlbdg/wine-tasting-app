@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Plus, Wine, LogOut, Calendar, MapPin, Edit, Trash2 } from 'lucide-react';
+import { Plus, Wine, LogOut, Calendar, MapPin, Edit, Trash2, BarChart3 } from 'lucide-react';
+import AdminAnalytics from './AdminAnalytics';
 
 const AdminDashboard = () => {
   const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('events');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEventForAnalytics, setSelectedEventForAnalytics] = useState(null);
+  
 
   useEffect(() => {
     checkUser();
@@ -184,8 +187,17 @@ const updateWineField = (field, value) => {
                     Code: {event.event_code}
                   </div>
                 </div>
-                
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setSelectedEventForAnalytics(event);
+                      setCurrentView('analytics');
+                    }}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                    title="View Analytics"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                  </button>
                   <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
                     <Edit className="w-4 h-4" />
                   </button>
@@ -523,10 +535,25 @@ const CreateEventForm = () => (
           </button>
         </div>
       </nav>
-      
       <main className="max-w-6xl mx-auto p-4">
         {currentView === 'events' && <EventsList />}
         {currentView === 'create-event' && <CreateEventForm />}
+        {currentView === 'analytics' && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => setCurrentView('events')}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                ← Back to Events
+              </button>
+              <h2 className="text-xl font-bold">
+                Analytics: {selectedEventForAnalytics?.event_name}
+              </h2>
+            </div>
+            <AdminAnalytics event={selectedEventForAnalytics} />
+          </div>
+        )}
       </main>
     </div>
   );
