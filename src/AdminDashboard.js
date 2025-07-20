@@ -235,6 +235,15 @@ const [wineForm, setWineForm] = useState({
   sommelier_notes: ''
 });
 
+// Stable form handlers to prevent re-rendering issues
+const handleEventFormChange = useCallback((field, value) => {
+  setEventForm(prev => ({ ...prev, [field]: value }));
+}, []);
+
+const handleWineFormChange = useCallback((field, value) => {
+  setWineForm(prev => ({ ...prev, [field]: value }));
+}, []);
+
 // Add these functions after your existing functions
 const createEvent = async () => {
   if (!eventForm.event_name || !eventForm.event_date) {
