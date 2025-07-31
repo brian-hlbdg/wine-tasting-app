@@ -1,29 +1,72 @@
 import React, { useState } from 'react';
 import AdminDashboard from './AdminDashboard';
+import CreateEventForm from './CreateEventForm';
 import UserInterface from './UserInterface';
+import WineRatingForm from './WineRatingForm';
 
 function App() {
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [currentApp, setCurrentApp] = useState('user');
+  const [adminUser, setAdminUser] = useState(null);
+  const [selectedWine, setSelectedWine] = useState(null);
+
+  const goToCreateForm = (user) => {
+    setAdminUser(user);
+    setCurrentApp('create-form');
+  };
+
+  const goToRatingForm = (wine) => {
+    setSelectedWine(wine);
+    setCurrentApp('rating-form');
+  };
+
+  const backToAdmin = () => setCurrentApp('admin');
+  const backToUser = () => setCurrentApp('user');
+
+  if (currentApp === 'create-form') {
+    return (
+      <div className="App">
+        <CreateEventForm 
+          user={adminUser}
+          onBack={backToAdmin}
+          onEventCreated={backToAdmin}
+        />
+      </div>
+    );
+  }
+
+  if (currentApp === 'rating-form') {
+    return (
+      <div className="App">
+        <WineRatingForm 
+          wine={selectedWine}
+          onBack={backToUser}
+          onRatingSaved={backToUser}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="App">
-      {/* Mode Toggle */}
       <div style={{position: 'fixed', top: '10px', left: '10px', zIndex: 9999}}>
         <button 
-          onClick={() => setIsAdminMode(!isAdminMode)}
+          onClick={() => setCurrentApp(currentApp === 'admin' ? 'user' : 'admin')}
           style={{
-            background: isAdminMode ? '#dc2626' : '#7c3aed', 
+            background: currentApp === 'admin' ? '#dc2626' : '#7c3aed', 
             color: 'white', 
             padding: '8px 16px',
             borderRadius: '6px',
             fontSize: '12px'
           }}
         >
-          {isAdminMode ? 'Switch to User' : 'Switch to Admin'}
+          {currentApp === 'admin' ? 'Switch to User' : 'Switch to Admin'}
         </button>
       </div>
 
-      {isAdminMode ? <AdminDashboard /> : <UserInterface />}
+      {currentApp === 'admin' ? 
+        <AdminDashboard onCreateEvent={goToCreateForm} /> : 
+        <UserInterface onRateWine={goToRatingForm} />
+      }
     </div>
   );
 }

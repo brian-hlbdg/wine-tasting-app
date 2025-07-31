@@ -4,12 +4,18 @@ import { Plus, Wine, LogOut, Calendar, MapPin, Edit, Trash2, BarChart3 } from 'l
 import AdminAnalytics from './AdminAnalytics';
 import CreateEventForm from './CreateEventForm';
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ onCreateEvent }) => {
   const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('events');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEventForAnalytics, setSelectedEventForAnalytics] = useState(null);
+  console.log('=== AdminDashboard Render Debug ===');
+  console.log('currentView:', currentView);
+  console.log('user:', user);
+  console.log('events:', events);
+  console.log('loading:', loading);
+  console.log('==================');
   
 
   useEffect(() => {
@@ -17,6 +23,7 @@ const AdminDashboard = () => {
   }, []);
 
   useEffect(() => {
+    console.log('User changed useEffect triggered:', user?.id);
     if (user) loadEvents();
   }, [user]);
 
@@ -31,11 +38,30 @@ const AdminDashboard = () => {
         .single();
       
       if (profile?.is_admin) {
-        setUser(profile);
+        // Only update user if it's actually different
+        setUser(prevUser => {
+          if (!prevUser || prevUser.id !== profile.id) {
+            console.log('Setting new user:', profile.id);
+            return profile;
+          }
+          console.log('User unchanged, skipping update');
+          return prevUser; // Return same object to prevent re-render
+        });
       }
     }
     setLoading(false);
   };
+  // Stable function references to prevent re-renders
+const handleBackToEvents = useCallback(() => {
+  setCurrentView('events');
+  }, []);
+
+  const handleEventCreated = useCallback(() => {
+    setCurrentView('events');
+    loadEvents();
+  }, []);
+
+  
 
   // Add these handler functions to your AdminDashboard component:
 const updateEventField = (field, value) => {
@@ -128,11 +154,7 @@ const updateWineField = (field, value) => {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold">Wine Tasting Events</h2>
         <button
-          onClick={() => {
-            console.log('New Event button clicked in EventsList');
-            setCurrentView('create-event');
-            console.log('setCurrentView called in EventsList');
-          }}
+          onClick={() => onCreateEvent && onCreateEvent(user)}
           className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700"
         >
           <Plus className="w-4 h-4" />
@@ -388,6 +410,7 @@ const removeWineFromEvent = (index) => {
   }));
 };
 
+
 // Add the CreateEventForm component
 const CreateEventForm = () => (
   <div className="space-y-6">
@@ -592,16 +615,6 @@ const CreateEventForm = () => (
       </nav>
       <main className="max-w-6xl mx-auto p-4">
         {currentView === 'events' && <EventsList />}
-        {currentView === 'create-event' && (
-          <CreateEventForm 
-            user={user}
-            onBack={() => setCurrentView('events')}
-            onEventCreated={() => {
-              setCurrentView('events');
-              loadEvents();
-            }}
-          />
-        )}
         {currentView === 'analytics' && (
           <div>
             <div className="flex items-center gap-3 mb-4">

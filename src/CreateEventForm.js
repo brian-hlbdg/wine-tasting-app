@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { Trash2 } from 'lucide-react';
 
 const CreateEventForm = ({ user, onBack, onEventCreated }) => {
+  console.log('CreateEventForm is rendering!', Date.now());
   const [eventForm, setEventForm] = useState({
     event_name: '',
     event_date: '',
@@ -321,4 +322,4 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
   );
 };
 
-export default CreateEventForm;
+export default React.memo(CreateEventForm);

@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import { Star, Wine, User, ArrowLeft, Plus } from 'lucide-react';
 import UserProfile from './UserProfile';
 
-const UserInterface = () => {
+const UserInterface = ({ onRateWine }) => {
   const [currentView, setCurrentView] = useState('join'); // 'join', 'event', 'rating'
   const [user, setUser] = useState(null);
   const [event, setEvent] = useState(null);
@@ -269,8 +269,7 @@ const UserInterface = () => {
               key={wine.id} 
               className="bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => {
-                setSelectedWine(wine);
-                setCurrentView('rating');
+                onRateWine && onRateWine(wine);
               }}
             >
               {/* Your existing wine card content */}
