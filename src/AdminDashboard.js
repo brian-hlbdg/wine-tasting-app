@@ -217,12 +217,20 @@ const updateWineField = (field, value) => {
                   >
                     <BarChart3 className="w-4 h-4" />
                   </button>
-                  <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
+                  <button 
+                    onClick={() => toggleEventActive(event.id, event.is_active)}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded"
+                    title={event.is_active ? "Deactivate Event" : "Activate Event"}
+                  >
                     <Edit className="w-4 h-4" />
                   </button>
-                  <button className="p-2 text-red-600 hover:bg-red-50 rounded">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <button 
+                  onClick={() => deleteEvent(event.id)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded"
+                  title="Delete Event"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 </div>
               </div>
             </div>
@@ -408,6 +416,35 @@ const removeWineFromEvent = (index) => {
     ...prev,
     wines: prev.wines.filter((_, i) => i !== index)
   }));
+};
+
+const deleteEvent = async (eventId) => {
+  if (!window.confirm('Are you sure you want to delete this event?')) return;
+  
+  const { error } = await supabase
+    .from('tasting_events')
+    .delete()
+    .eq('id', eventId);
+    
+  if (error) {
+    alert('Error deleting event: ' + error.message);
+  } else {
+    alert('Event deleted successfully');
+    loadEvents();
+  }
+};
+
+const toggleEventActive = async (eventId, currentStatus) => {
+  const { error } = await supabase
+    .from('tasting_events')
+    .update({ is_active: !currentStatus })
+    .eq('id', eventId);
+    
+  if (error) {
+    alert('Error updating event: ' + error.message);
+  } else {
+    loadEvents();
+  }
 };
 
 
