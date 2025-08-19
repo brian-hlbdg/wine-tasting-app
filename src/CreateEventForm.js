@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
 import { Trash2 } from 'lucide-react';
+import WineSearchInput from './WineSearchInput';
+import LocationSearchInput from './LocationSearchInput';
 
 const CreateEventForm = ({ user, onBack, onEventCreated }) => {
   console.log('CreateEventForm is rendering!', Date.now());
@@ -145,15 +147,12 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
               }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             />
-            <input
-              type="text"
-              placeholder="Location"
-              value={eventForm.location || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setEventForm(prev => ({ ...prev, location: value }));
+            <LocationSearchInput
+              value={eventForm.location}
+              onChange={(location) => {
+                setEventForm(prev => ({ ...prev, location: location }));
               }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              placeholder="Location"
             />
           </div>
           
@@ -175,17 +174,31 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
         <h3 className="font-semibold mb-4 text-purple-700">Add Wines</h3>
         
         <div className="grid gap-4 mb-4">
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Wine name *"
-              value={wineForm.wine_name || ''}
-                onChange={(e) => {
-                    const value = e.target.value;
-                    setWineForm(prev => ({ ...prev, wine_name: value }));
-                }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+          {/* Replace the wine name input with this: */}
+          <div className="grid grid-cols-1 gap-4">
+            <WineSearchInput
+              onWineSelected={(wine) => {
+                setWineForm(prev => ({
+                  ...prev,
+                  wine_name: wine.wine_name,
+                  producer: wine.producer || '',
+                  vintage: wine.vintage || '',
+                  wine_type: wine.wine_type,
+                  region: wine.region || '',
+                  country: wine.country || '',
+                  price_point: wine.price_point || 'Mid-range',
+                  alcohol_content: wine.alcohol_content || '',
+                  sommelier_notes: wine.default_notes || ''
+                }));
+              }}
+              onCreateNew={(wineName) => {
+                setWineForm(prev => ({ ...prev, wine_name: wineName }));
+              }}
             />
+          </div>
+
+          {/* Keep the producer input but move it below the search */}
+          <div className="grid grid-cols-2 gap-4">
             <input
               type="text"
               placeholder="Producer"
@@ -196,6 +209,7 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
               }}
               className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             />
+            {/* ... rest of your existing inputs */}
           </div>
           
           <div className="grid grid-cols-3 gap-4">

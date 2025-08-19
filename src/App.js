@@ -6,13 +6,12 @@ import WineRatingForm from './WineRatingForm';
 import JoinEventForm from './JoinEventForm';
 
 function App() {
-  const [viewMode, setViewMode] = useState('side-by-side'); // 'side-by-side', 'admin-only', 'user-only'
+  const [viewMode, setViewMode] = useState('side-by-side');
   const [adminUser, setAdminUser] = useState(null);
   const [selectedWine, setSelectedWine] = useState(null);
   const [currentEvent, setCurrentEvent] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showRatingForm, setShowRatingForm] = useState(false);
-  const [showJoinForm, setShowJoinForm] = useState(true);
 
   const goToCreateForm = (user) => {
     setAdminUser(user);
@@ -26,14 +25,14 @@ function App() {
 
   const handleEventJoined = (event) => {
     setCurrentEvent(event);
-    setShowJoinForm(false);
   };
 
   const backToAdmin = () => setShowCreateForm(false);
   const backToUser = () => setShowRatingForm(false);
+  
   const backToJoin = () => {
+    console.log('backToJoin called - resetting to join form');
     setCurrentEvent(null);
-    setShowJoinForm(true);
   };
 
   const nextViewMode = () => {
@@ -42,36 +41,29 @@ function App() {
     else setViewMode('side-by-side');
   };
 
-  // Mode Toggle Button - moved to bottom
-const ModeToggle = () => (
-  <div style={{position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999}}>
-    <button 
-      onClick={nextViewMode}
-      style={{
-        background: viewMode === 'side-by-side' ? '#7c3aed' : viewMode === 'admin-only' ? '#dc2626' : '#059669',
-        color: 'white', 
-        padding: '12px 20px',
-        borderRadius: '50px',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        border: 'none',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease'
-      }}
-      onMouseOver={(e) => {
-        e.target.style.transform = 'scale(1.05)';
-      }}
-      onMouseOut={(e) => {
-        e.target.style.transform = 'scale(1)';
-      }}
-    >
-      {viewMode === 'side-by-side' ? '📊 Testing Mode' : 
-       viewMode === 'admin-only' ? '👨‍💼 Admin Only' : 
-       '👤 User Only'}
-    </button>
-  </div>
-);
+  const ModeToggle = () => (
+    <div style={{position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999}}>
+      <button 
+        onClick={nextViewMode}
+        style={{
+          background: viewMode === 'side-by-side' ? '#7c3aed' : viewMode === 'admin-only' ? '#dc2626' : '#059669',
+          color: 'white', 
+          padding: '12px 20px',
+          borderRadius: '50px',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        {viewMode === 'side-by-side' ? '📊 Testing Mode' : 
+         viewMode === 'admin-only' ? '👨‍💼 Admin Only' : 
+         '👤 User Only'}
+      </button>
+    </div>
+  );
 
   // Handle full-screen forms
   if (showCreateForm) {
@@ -114,17 +106,17 @@ const ModeToggle = () => (
             <AdminDashboard onCreateEvent={goToCreateForm} />
           </div>
           
-          {/* User Side */}
+          {/* User Side - CONSISTENT LOGIC */}
           <div style={{ width: '40%' }}>
             <div style={{ padding: '8px', background: '#059669', color: 'white', textAlign: 'center', fontSize: '14px', fontWeight: 'bold' }}>
               USER EXPERIENCE
             </div>
-            {showJoinForm ? (
+            {!currentEvent ? (
               <JoinEventForm onEventJoined={handleEventJoined} />
             ) : (
-              <UserInterface 
+              <UserInterface
                 event={currentEvent}
-                onRateWine={goToRatingForm} 
+                onRateWine={goToRatingForm}
                 onBackToJoin={backToJoin}
               />
             )}
@@ -149,12 +141,12 @@ const ModeToggle = () => (
     return (
       <div className="App">
         <ModeToggle />
-        {showJoinForm ? (
+        {!currentEvent ? (
           <JoinEventForm onEventJoined={handleEventJoined} />
         ) : (
-          <UserInterface 
+          <UserInterface
             event={currentEvent}
-            onRateWine={goToRatingForm} 
+            onRateWine={goToRatingForm}
             onBackToJoin={backToJoin}
           />
         )}
