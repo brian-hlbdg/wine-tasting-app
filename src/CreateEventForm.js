@@ -1,29 +1,15 @@
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
 import { Trash2 } from 'lucide-react';
-import WineSearchInput from './WineSearchInput';
-import LocationSearchInput from './LocationSearchInput';
+import WineForm from './WineForm';
 
 const CreateEventForm = ({ user, onBack, onEventCreated }) => {
-  console.log('CreateEventForm is rendering!', Date.now());
   const [eventForm, setEventForm] = useState({
     event_name: '',
     event_date: '',
     location: '',
     description: '',
     wines: []
-  });
-
-  const [wineForm, setWineForm] = useState({
-    wine_name: '',
-    producer: '',
-    vintage: '',
-    wine_type: 'red',
-    region: '',
-    country: '',
-    price_point: 'Mid-range',
-    alcohol_content: '',
-    sommelier_notes: ''
   });
 
   const createEvent = async () => {
@@ -59,11 +45,20 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
         producer: wine.producer || null,
         vintage: wine.vintage ? parseInt(wine.vintage) : null,
         wine_type: wine.wine_type,
+        beverage_type: wine.beverage_type || 'Wine',
         region: wine.region || null,
         country: wine.country || null,
         price_point: wine.price_point,
         alcohol_content: wine.alcohol_content ? parseFloat(wine.alcohol_content) : null,
         sommelier_notes: wine.sommelier_notes || null,
+        image_url: wine.image_url || null,
+        grape_varieties: wine.grape_varieties.length > 0 ? wine.grape_varieties : null,
+        wine_style: wine.wine_style.length > 0 ? wine.wine_style : null,
+        food_pairings: wine.food_pairings.length > 0 ? wine.food_pairings : null,
+        tasting_notes: (wine.tasting_notes.appearance || wine.tasting_notes.aroma || wine.tasting_notes.taste || wine.tasting_notes.finish) ? wine.tasting_notes : null,
+        winemaker_notes: wine.winemaker_notes || null,
+        technical_details: (wine.technical_details.ph || wine.technical_details.residual_sugar || wine.technical_details.total_acidity || wine.technical_details.aging || wine.technical_details.production) ? wine.technical_details : null,
+        awards: wine.awards.length > 0 ? wine.awards : null,
         tasting_order: index + 1
       }));
 
@@ -82,28 +77,11 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
     onEventCreated();
   };
 
-  const addWineToEvent = () => {
-    if (!wineForm.wine_name) {
-      alert('Please enter wine name');
-      return;
-    }
-
+  const handleAddWine = (wineData) => {
     setEventForm(prev => ({
       ...prev,
-      wines: [...prev.wines, { ...wineForm }]
+      wines: [...prev.wines, wineData]
     }));
-
-    setWineForm({
-      wine_name: '',
-      producer: '',
-      vintage: '',
-      wine_type: 'red',
-      region: '',
-      country: '',
-      price_point: 'Mid-range',
-      alcohol_content: '',
-      sommelier_notes: ''
-    });
   };
 
   const removeWineFromEvent = (index) => {
@@ -114,7 +92,7 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Create New Event</h2>
         <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
@@ -124,216 +102,105 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
 
       {/* Event Details */}
       <div className="bg-white p-6 rounded-lg border">
-        <h3 className="font-semibold mb-4 text-purple-700">Event Details</h3>
+        <h3 className="font-semibold mb-4 text-amber-700">Event Details</h3>
         <div className="grid gap-4">
           <input
             type="text"
             placeholder="Event name"
             value={eventForm.event_name || ''}
-            onChange={(e) => {
-                const value = e.target.value;
-                setEventForm(prev => ({ ...prev, event_name: value }));
-              }}
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+            onChange={(e) => setEventForm(prev => ({ ...prev, event_name: e.target.value }))}
+            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-amber-500"
           />
           
           <div className="grid grid-cols-2 gap-4">
             <input
               type="date"
               value={eventForm.event_date || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setEventForm(prev => ({ ...prev, event_date: value }));
-              }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              onChange={(e) => setEventForm(prev => ({ ...prev, event_date: e.target.value }))}
+              className="p-3 border rounded-lg focus:ring-2 focus:ring-amber-500"
             />
-            <LocationSearchInput
-              value={eventForm.location}
-              onChange={(location) => {
-                setEventForm(prev => ({ ...prev, location: location }));
-              }}
+            <input
+              type="text"
               placeholder="Location"
+              value={eventForm.location || ''}
+              onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
+              className="p-3 border rounded-lg focus:ring-2 focus:ring-amber-500"
             />
           </div>
           
           <textarea
             placeholder="Event description"
             value={eventForm.description || ''}
-            onChange={(e) => {
-                const value = e.target.value;
-                setEventForm(prev => ({ ...prev, description: value }));
-            }}
+            onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
             rows="3"
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-amber-500"
           />
         </div>
       </div>
 
-      {/* Add Wines */}
-      <div className="bg-white p-6 rounded-lg border">
-        <h3 className="font-semibold mb-4 text-purple-700">Add Wines</h3>
-        
-        <div className="grid gap-4 mb-4">
-          {/* Replace the wine name input with this: */}
-          <div className="grid grid-cols-1 gap-4">
-            <WineSearchInput
-              onWineSelected={(wine) => {
-                setWineForm(prev => ({
-                  ...prev,
-                  wine_name: wine.wine_name,
-                  producer: wine.producer || '',
-                  vintage: wine.vintage || '',
-                  wine_type: wine.wine_type,
-                  region: wine.region || '',
-                  country: wine.country || '',
-                  price_point: wine.price_point || 'Mid-range',
-                  alcohol_content: wine.alcohol_content || '',
-                  sommelier_notes: wine.default_notes || ''
-                }));
-              }}
-              onCreateNew={(wineName) => {
-                setWineForm(prev => ({ ...prev, wine_name: wineName }));
-              }}
-            />
-          </div>
+      {/* Wine Form Component */}
+      <WineForm onAddWine={handleAddWine} />
 
-          {/* Keep the producer input but move it below the search */}
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Producer"
-              value={wineForm.producer || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setWineForm(prev => ({ ...prev, producer: value }));
-              }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-            />
-            {/* ... rest of your existing inputs */}
-          </div>
-          
-          <div className="grid grid-cols-3 gap-4">
-          <select
-            value={wineForm.wine_type}
-            onChange={(e) => {
-                const value = e.target.value;
-                setWineForm(prev => ({ ...prev, wine_type: value }));
-            }}
-            className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-            >
-            <option value="red">Red</option>
-            <option value="white">White</option>
-            <option value="rosé">Rosé</option>
-            <option value="sparkling">Sparkling</option>
-            <option value="dessert">Dessert</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Vintage"
-              value={wineForm.vintage || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setWineForm(prev => ({ ...prev, vintage: value }));
-              }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-            />
-            <select
-              value={wineForm.price_point}
-              onChange={(e) => {
-                const value = e.target.value;
-                setWineForm(prev => ({ ...prev, price_point: value }));
-              }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="Budget">Budget</option>
-              <option value="Mid-range">Mid-range</option>
-              <option value="Premium">Premium</option>
-              <option value="Luxury">Luxury</option>
-            </select>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Region"
-              value={wineForm.region || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setWineForm(prev => ({ ...prev, region: value }));
-              }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-            />
-            <input
-              type="text"
-              placeholder="Country"
-              value={wineForm.country || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                setWineForm(prev => ({ ...prev, country: value }));
-              }}
-              className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-          
-          <textarea
-            placeholder="Sommelier notes"
-            value={wineForm.sommelier_notes || ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              setWineForm(prev => ({ ...prev, sommelier_notes: value }));
-            }}
-            rows="2"
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-        
-        <button
-          onClick={addWineToEvent}
-          className="bg-purple-100 text-purple-700 px-4 py-2 rounded-lg hover:bg-purple-200 mb-4"
-        >
-          Add Wine to Event
-        </button>
-
-        {/* Wine List */}
-        {eventForm.wines.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-medium">Wines for this event:</h4>
+      {/* Wine List */}
+      {eventForm.wines.length > 0 && (
+        <div className="bg-white p-6 rounded-lg border">
+          <h4 className="font-medium mb-4">Wines for this event ({eventForm.wines.length}):</h4>
+          <div className="space-y-3">
             {eventForm.wines.map((wine, index) => (
-              <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                <div>
-                  <span className="font-medium">{wine.wine_name}</span>
-                  {wine.producer && <span className="text-gray-600"> - {wine.producer}</span>}
-                  {wine.vintage && <span className="text-gray-600"> ({wine.vintage})</span>}
+              <div key={index} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium">{wine.wine_name}</span>
+                    <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
+                      {wine.beverage_type}
+                    </span>
+                    {wine.wine_style.length > 0 && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                        {wine.wine_style[0]}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {wine.producer && <span>{wine.producer}</span>}
+                    {wine.vintage && <span> • {wine.vintage}</span>}
+                    {wine.region && <span> • {wine.region}</span>}
+                  </div>
+                  {wine.grape_varieties.length > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Grapes: {wine.grape_varieties.map(g => `${g.name} (${g.percentage}%)`).join(', ')}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => removeWineFromEvent(index)}
-                  className="text-red-600 hover:bg-red-50 p-1 rounded"
+                  className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors ml-4"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 size={16} />
                 </button>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Create Event Button */}
-      <div className="flex gap-4">
+      <div className="bg-white p-6 rounded-lg border">
         <button
           onClick={createEvent}
-          className="flex-1 bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 font-medium"
+          disabled={!eventForm.event_name || !eventForm.event_date}
+          className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-4 rounded-lg font-semibold text-lg transition-colors"
         >
-          Create Event
+          Create Event with {eventForm.wines.length} Wine{eventForm.wines.length !== 1 ? 's' : ''}
         </button>
-        <button
-          onClick={onBack}
-          className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          Cancel
-        </button>
+        
+        {eventForm.wines.length === 0 && (
+          <p className="text-center text-gray-500 mt-2 text-sm">
+            Add at least one wine to create your event
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
-export default React.memo(CreateEventForm);
+export default CreateEventForm;
