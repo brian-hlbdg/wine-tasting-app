@@ -20,61 +20,68 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
 
     console.log('Creating event with wines:', eventForm.wines);
 
-    const { data: eventData, error: eventError } = await supabase
-      .from('tasting_events')
-      .insert([{
+    try {
+      // Import helper function
+      const { createEventWithCode } = await import('./supabaseHelpers');
+      
+      // Create event with auto-generated code
+      const { data: eventData, error: eventError, eventCode } = await createEventWithCode({
         admin_id: user.id,
         event_name: eventForm.event_name,
         event_date: eventForm.event_date,
         location: eventForm.location,
         description: eventForm.description
-      }])
-      .select()
-      .single();
+      });
 
-    if (eventError) {
-      console.error('Error creating event:', eventError);
-      alert('Error creating event: ' + eventError.message);
-      return;
-    }
-
-    if (eventForm.wines.length > 0) {
-      const winesForDB = eventForm.wines.map((wine, index) => ({
-        event_id: eventData.id,
-        wine_name: wine.wine_name,
-        producer: wine.producer || null,
-        vintage: wine.vintage ? parseInt(wine.vintage) : null,
-        wine_type: wine.wine_type,
-        beverage_type: wine.beverage_type || 'Wine',
-        region: wine.region || null,
-        country: wine.country || null,
-        price_point: wine.price_point,
-        alcohol_content: wine.alcohol_content ? parseFloat(wine.alcohol_content) : null,
-        sommelier_notes: wine.sommelier_notes || null,
-        image_url: wine.image_url || null,
-        grape_varieties: wine.grape_varieties.length > 0 ? wine.grape_varieties : null,
-        wine_style: wine.wine_style.length > 0 ? wine.wine_style : null,
-        food_pairings: wine.food_pairings.length > 0 ? wine.food_pairings : null,
-        tasting_notes: (wine.tasting_notes.appearance || wine.tasting_notes.aroma || wine.tasting_notes.taste || wine.tasting_notes.finish) ? wine.tasting_notes : null,
-        winemaker_notes: wine.winemaker_notes || null,
-        technical_details: (wine.technical_details.ph || wine.technical_details.residual_sugar || wine.technical_details.total_acidity || wine.technical_details.aging || wine.technical_details.production) ? wine.technical_details : null,
-        awards: wine.awards.length > 0 ? wine.awards : null,
-        tasting_order: index + 1
-      }));
-
-      const { error: winesError } = await supabase
-        .from('event_wines')
-        .insert(winesForDB);
-
-      if (winesError) {
-        console.error('Error creating wines:', winesError);
-        alert('Event created but error adding wines: ' + winesError.message);
+      if (eventError) {
+        console.error('Error creating event:', eventError);
+        alert('Error creating event: ' + eventError.message);
+        return;
       }
-    }
 
-    alert('Event created successfully!');
-    setEventForm({ event_name: '', event_date: '', location: '', description: '', wines: [] });
-    onEventCreated();
+      // Add wines to the event
+      if (eventForm.wines.length > 0) {
+        const winesForDB = eventForm.wines.map((wine, index) => ({
+          event_id: eventData.id,
+          wine_name: wine.wine_name,
+          producer: wine.producer || null,
+          vintage: wine.vintage ? parseInt(wine.vintage) : null,
+          wine_type: wine.wine_type,
+          beverage_type: wine.beverage_type || 'Wine',
+          region: wine.region || null,
+          country: wine.country || null,
+          price_point: wine.price_point,
+          alcohol_content: wine.alcohol_content ? parseFloat(wine.alcohol_content) : null,
+          sommelier_notes: wine.sommelier_notes || null,
+          image_url: wine.image_url || null,
+          grape_varieties: wine.grape_varieties.length > 0 ? wine.grape_varieties : null,
+          wine_style: wine.wine_style.length > 0 ? wine.wine_style : null,
+          food_pairings: wine.food_pairings.length > 0 ? wine.food_pairings : null,
+          tasting_notes: (wine.tasting_notes.appearance || wine.tasting_notes.aroma || wine.tasting_notes.taste || wine.tasting_notes.finish) ? wine.tasting_notes : null,
+          winemaker_notes: wine.winemaker_notes || null,
+          technical_details: (wine.technical_details.ph || wine.technical_details.residual_sugar || wine.technical_details.total_acidity || wine.technical_details.aging || wine.technical_details.production) ? wine.technical_details : null,
+          awards: wine.awards.length > 0 ? wine.awards : null,
+          tasting_order: index + 1
+        }));
+
+        const { error: winesError } = await supabase
+          .from('event_wines')
+          .insert(winesForDB);
+
+        if (winesError) {
+          console.error('Error creating wines:', winesError);
+          alert('Event created but error adding wines: ' + winesError.message);
+        }
+      }
+
+      alert(`Event created successfully!\nEvent Code: ${eventCode}\n\nShare this code with your attendees.`);
+      setEventForm({ event_name: '', event_date: '', location: '', description: '', wines: [] });
+      onEventCreated();
+      
+    } catch (error) {
+      console.error('Error creating event:', error);
+      alert('Error creating event. Please try again.');
+    }
   };
 
   const handleAddWine = (wineData) => {
@@ -194,7 +201,7 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
         </button>
         
         {eventForm.wines.length === 0 && (
-          <p className="text-center text-gray-500 mt-2 text-sm">
+          <p className="text-center text-gray-500 text-sm mt-2">
             Add at least one wine to create your event
           </p>
         )}

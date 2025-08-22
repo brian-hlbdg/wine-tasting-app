@@ -19,7 +19,31 @@ const UserInterface = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Import helper functions
+      const { verifyEventAccess, createUserSession } = await import('./supabaseHelpers');
+      
+      // For now, we'll ask for email in a prompt
+      // In production, you'd have an email input field
+      const email = prompt('Please enter your email address:');
+      if (!email) {
+        setLoading(false);
+        return;
+      }
+
+      const result = await verifyEventAccess(eventCode.trim().toUpperCase(), email);
+      
+      if (!result.success) {
+        alert(result.message);
+        setLoading(false);
+        return;
+      }
+
+      // Create user session
+      const session = createUserSession(result.attendee);
+      console.log('User session created:', session);
+
+      // Load event with wines
+      const { data: eventWithWines, error: winesError } = await supabase
         .from('tasting_events')
         .select(`
           *,
@@ -27,21 +51,19 @@ const UserInterface = () => {
             *
           )
         `)
-        .eq('event_code', eventCode.trim().toUpperCase())
+        .eq('id', result.event.id)
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          alert('Event not found. Please check your code.');
-        } else {
-          console.error('Error finding event:', error);
-          alert('Error finding event: ' + error.message);
-        }
+      if (winesError) {
+        console.error('Error loading event wines:', winesError);
+        alert('Error loading event details');
+        setLoading(false);
         return;
       }
 
-      setEvent(data);
+      setEvent(eventWithWines);
       setCurrentView('event');
+
     } catch (error) {
       console.error('Error joining event:', error);
       alert('Error joining event. Please try again.');
