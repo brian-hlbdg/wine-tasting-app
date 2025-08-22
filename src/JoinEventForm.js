@@ -1,92 +1,99 @@
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
+import { Wine } from 'lucide-react';
 
 const JoinEventForm = ({ onEventJoined }) => {
   const [eventCode, setEventCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const joinEvent = async (code) => {
-    if (!code || code.length < 6) {
-      alert('Please enter a 6-character event code');
+  const joinEvent = async () => {
+    if (!eventCode.trim()) {
+      alert('Please enter an event code');
       return;
     }
-    
-    setIsLoading(true);
-    console.log('Joining event with code:', code);
+
+    if (!email.trim()) {
+      alert('Please enter your email address');
+      return;
+    }
+
+    setLoading(true);
     
     try {
+      console.log('Joining event with code:', eventCode, 'and email:', email);
+      
       const { data: eventData, error: eventError } = await supabase
         .from('tasting_events')
         .select(`
           *,
           event_wines (*)
         `)
-        .eq('event_code', code.toUpperCase())
+        .eq('event_code', eventCode.toUpperCase())
         .eq('is_active', true)
         .single();
 
       if (eventError) {
         console.error('Error finding event:', eventError);
         alert('Event not found. Please check the code.');
-      } else {
-        console.log('Event found:', eventData);
-        onEventJoined(eventData);
+        return;
       }
+
+      console.log('Event found:', eventData);
+      
+      // For now, we'll just join the event
+      // Later this will check against attendee list
+      onEventJoined(eventData);
+      
     } catch (error) {
-      console.error('Join event error:', error);
-      alert('Error joining event');
+      console.error('Error joining event:', error);
+      alert('Error joining event. Please try again.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  console.log('JoinEventForm rendering');
-
   return (
-    <div style={{ padding: '40px', textAlign: 'center', maxWidth: '400px', margin: '0 auto' }}>
-      <h1>Join Wine Tasting</h1>
-      <p>Enter the event code to get started</p>
-      
-      <div style={{ marginBottom: '20px' }}>
-        <input
-          type="text"
-          placeholder="Event Code (e.g. ABC123)"
-          value={eventCode}
-          onChange={(e) => setEventCode(e.target.value.toUpperCase())}
-          style={{
-            width: '100%',
-            padding: '15px',
-            fontSize: '18px',
-            textAlign: 'center',
-            border: '2px solid #ccc',
-            borderRadius: '8px',
-            fontFamily: 'monospace',
-            letterSpacing: '2px'
-          }}
-          maxLength="6"
-        />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <div className="text-center mb-6">
+          <Wine className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Join Wine Tasting</h1>
+          <p className="text-gray-600">Enter your event code and email to get started</p>
+        </div>
+        
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="Event Code (e.g. ABC123)"
+            value={eventCode}
+            onChange={(e) => setEventCode(e.target.value.toUpperCase())}
+            className="w-full p-4 text-center text-lg font-mono border rounded-lg focus:ring-2 focus:ring-purple-500"
+            maxLength="6"
+          />
+          
+          <input
+            type="email"
+            placeholder="Your email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-4 border rounded-lg focus:ring-2 focus:ring-purple-500"
+          />
+          
+          <button
+            onClick={joinEvent}
+            disabled={loading || eventCode.length < 3 || !email}
+            className="w-full bg-purple-600 text-white py-4 rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Joining...' : 'Join Event'}
+          </button>
+        </div>
+        
+        <div className="mt-6 text-center text-sm text-gray-500">
+          <p>Don't have an event code?</p>
+          <p>Contact your event organizer</p>
+        </div>
       </div>
-      
-      <button
-        onClick={() => joinEvent(eventCode)}
-        disabled={eventCode.length < 6 || isLoading}
-        style={{
-          width: '100%',
-          padding: '15px',
-          fontSize: '18px',
-          backgroundColor: eventCode.length >= 6 && !isLoading ? '#7c3aed' : '#ccc',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: eventCode.length >= 6 && !isLoading ? 'pointer' : 'not-allowed'
-        }}
-      >
-        {isLoading ? 'Joining...' : 'Join Event'}
-      </button>
-      
-      <p style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-        Get the event code from your host
-      </p>
     </div>
   );
 };
