@@ -169,33 +169,66 @@ const WineDetailsInterface = ({ wine, onBack, onRatingSaved }) => {
 
     setSaving(true);
     try {
-      // Import helper functions
-      const { saveWineRating, getUserSession } = await import('./supabaseHelpers');
+      // Create or get user profile
+      let userId = crypto.randomUUID();
       
-      // Get current user session
-      const session = getUserSession();
-      if (!session) {
-        alert('Session expired. Please rejoin the event.');
-        onBack();
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .insert([{
+          id: userId,
+          display_name: 'Wine Taster',
+          phone_number: '+1-demo-' + Date.now().toString().slice(-6),
+          is_admin: false
+        }])
+        .select()
+        .single();
+      
+      if (profileError) {
+        const { data: existingUsers } = await supabase
+          .from('profiles')
+          .select('id')
+          .limit(1);
+      
+        if (existingUsers && existingUsers.length > 0) {
+          userId = existingUsers[0].id;
+        }
+      }
+
+      // Save rating
+      const { data: ratingData, error: ratingError } = await supabase
+        .from('user_wine_ratings')
+        .insert([{
+          user_id: userId,
+          event_wine_id: wine.id,
+          rating: userRating,
+          personal_notes: ratingNotes || null,
+          would_buy: userRating >= 4
+        }])
+        .select()
+        .single();
+
+      if (ratingError) {
+        console.error('Error saving rating:', ratingError);
+        alert('Error saving rating: ' + ratingError.message);
         return;
       }
 
-      // Prepare rating data
-      const ratingData = {
-        userId: session.userId,
-        wineId: wine.id,
-        rating: userRating,
-        notes: ratingNotes,
-        descriptors: isExpertMode ? selectedDescriptors : [],
-        wouldBuy: userRating >= 4
-      };
+      // Save descriptors if in expert mode
+      if (isExpertMode && selectedDescriptors.length > 0) {
+        const { data: descriptorIds } = await supabase
+          .from('descriptors')
+          .select('id, name')
+          .in('name', selectedDescriptors);
 
-      const { data, error } = await saveWineRating(ratingData);
+        if (descriptorIds && descriptorIds.length > 0) {
+          const descriptorInserts = descriptorIds.map(desc => ({
+            user_rating_id: ratingData.id,
+            descriptor_id: desc.id,
+            intensity: 3
+          }));
 
-      if (error) {
-        console.error('Error saving rating:', error);
-        alert('Error saving rating: ' + error.message);
-        return;
+          await supabase.from('user_wine_descriptors').insert(descriptorInserts);
+        }
       }
 
       alert(`Rating saved successfully!\n${wine?.wine_name}: ${userRating}/5 stars`);
@@ -672,8 +705,8 @@ const WineDetailsInterface = ({ wine, onBack, onRatingSaved }) => {
         </div>
       </div>
     </div>
-    </div>
-  </div>
+  );
+    
 
         {/* Main Wine Information */}
         <div className={`${theme.cardBg} mx-5 mt-5 rounded-2xl p-6 ${theme.border} border shadow-sm`}>
@@ -1048,9 +1081,7 @@ const WineDetailsInterface = ({ wine, onBack, onRatingSaved }) => {
             {saving ? 'Saving...' : 'Submit Rating & Continue to Next Wine'}
           </button>
         </div>
-      </div>
-    </div>
-  );
+
 };
 
 export default WineDetailsInterface;
