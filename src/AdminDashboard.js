@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Plus, Wine, LogOut, Calendar, MapPin, Edit, Trash2, BarChart3 } from 'lucide-react';
 import AdminAnalytics from './AdminAnalytics';
+import EnhancedCreateEventForm from './EnhancedCreateEventForm';
 
-const AdminDashboard = ({ onCreateEvent }) => {
+const AdminDashboard = ({ onCreateEvent, onLogout }) => {
   const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('events');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEventForAnalytics, setSelectedEventForAnalytics] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   useEffect(() => {
     checkUser();
@@ -41,7 +43,8 @@ const AdminDashboard = ({ onCreateEvent }) => {
       .from('tasting_events')
       .select(`
         *,
-        event_wines (*)
+        event_wines (*),
+        event_locations (*)
       `)
       .order('event_date', { ascending: false });
     
@@ -68,6 +71,9 @@ const AdminDashboard = ({ onCreateEvent }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    if (onLogout) {
+      onLogout(); // This will redirect back to /admin login
+    }
   };
 
   const deleteEvent = async (eventId) => {
@@ -99,6 +105,23 @@ const AdminDashboard = ({ onCreateEvent }) => {
     } else {
       loadEvents();
     }
+  };
+
+  // Event management functions
+  const startEditingEvent = (event) => {
+    setEditingEvent(event);
+    setCurrentView('edit-event');
+  };
+
+  const startCreatingEvent = () => {
+    setEditingEvent(null);
+    setCurrentView('create-event');
+  };
+
+  const handleEventUpdated = () => {
+    setEditingEvent(null);
+    setCurrentView('events');
+    loadEvents(); // Refresh the events list
   };
 
   // Login Form Component
@@ -154,7 +177,7 @@ const AdminDashboard = ({ onCreateEvent }) => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Your Events</h2>
         <button
-          onClick={() => onCreateEvent && onCreateEvent(user)}
+          onClick={startCreatingEvent}
           className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
         >
           <Plus className="w-4 h-4" />
@@ -168,7 +191,7 @@ const AdminDashboard = ({ onCreateEvent }) => {
           <h3 className="text-lg font-semibold text-gray-700 mb-2">No events yet</h3>
           <p className="text-gray-500 mb-4">Create your first wine tasting event</p>
           <button
-            onClick={() => onCreateEvent && onCreateEvent(user)}
+            onClick={startCreatingEvent}
             className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
           >
             Create Event
@@ -193,6 +216,15 @@ const AdminDashboard = ({ onCreateEvent }) => {
                       </div>
                     )}
                   </div>
+                  {/* Show if it's a wine crawl */}
+                  {event.event_locations && event.event_locations.length > 0 && (
+                    <div className="mt-2">
+                      <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                        <MapPin className="w-3 h-3" />
+                        Wine Crawl • {event.event_locations.length} locations
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2 py-1 text-xs rounded-full ${
@@ -214,8 +246,21 @@ const AdminDashboard = ({ onCreateEvent }) => {
                     <Wine className="w-4 h-4 text-purple-600" />
                     <span>{event.event_wines?.length || 0} wines</span>
                   </div>
+                  {event.event_locations && event.event_locations.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4 text-green-600" />
+                      <span>{event.event_locations.length} stops</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => startEditingEvent(event)}
+                    className="p-2 text-purple-600 hover:bg-purple-50 rounded"
+                    title="Edit Event & Manage Locations"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
                   <button 
                     onClick={() => {
                       setSelectedEventForAnalytics(event);
@@ -231,7 +276,7 @@ const AdminDashboard = ({ onCreateEvent }) => {
                     className="p-2 text-gray-600 hover:bg-gray-100 rounded"
                     title={event.is_active ? "Deactivate Event" : "Activate Event"}
                   >
-                    <Edit className="w-4 h-4" />
+                    {event.is_active ? <Trash2 className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
                   </button>
                   <button 
                     onClick={() => deleteEvent(event.id)}
@@ -249,6 +294,7 @@ const AdminDashboard = ({ onCreateEvent }) => {
     </div>
   );
 
+  // Main component render
   if (loading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
   }
@@ -276,7 +322,29 @@ const AdminDashboard = ({ onCreateEvent }) => {
       </nav>
       
       <main className="max-w-6xl mx-auto p-4">
+        {/* Events List View */}
         {currentView === 'events' && <EventsList />}
+        
+        {/* Create Event View */}
+        {currentView === 'create-event' && (
+          <EnhancedCreateEventForm 
+            user={user}
+            onBack={() => setCurrentView('events')}
+            onEventCreated={handleEventUpdated}
+          />
+        )}
+        
+        {/* Edit Event View */}
+        {currentView === 'edit-event' && editingEvent && (
+          <EnhancedCreateEventForm 
+            user={user}
+            onBack={() => setCurrentView('events')}
+            onEventCreated={handleEventUpdated}
+            editingEvent={editingEvent}
+          />
+        )}
+        
+        {/* Analytics View */}
         {currentView === 'analytics' && (
           <div>
             <div className="flex items-center gap-3 mb-4">

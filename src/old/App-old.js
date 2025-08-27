@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import AdminDashboard from './AdminDashboard';
-import CreateEventForm from './CreateEventForm';
-import UserInterface from './UserInterface';
-import WineRatingForm from './WineRatingForm';
-import JoinEventForm from './JoinEventForm';
+import AdminDashboard from '../AdminDashboard';
+import CreateEventForm from '../CreateEventForm';
+import UserInterface from '../UserInterface';
+import WineRatingForm from '../WineRatingForm';
+import JoinEventForm from '../JoinEventForm';
 
 function App() {
   const [viewMode, setViewMode] = useState('side-by-side');

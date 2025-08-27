@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Wine, LogOut, Calendar, MapPin, Edit, Trash2, BarChart3, Plus, User, Lock, Settings } from 'lucide-react';
-import AuthSystem from './AuthSystem';
+import AuthSystem from '../AuthSystem';
 
 const WineTastingApp = () => {
   const [authMode, setAuthMode] = useState('select'); // 'select', 'admin-login', 'user-login'
