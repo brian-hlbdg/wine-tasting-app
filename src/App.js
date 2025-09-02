@@ -5,6 +5,7 @@ import CreateEventForm from './CreateEventForm';
 import UserInterface from './UserInterface';
 import WineRatingForm from './WineRatingForm';
 import JoinEventForm from './JoinEventForm';
+import AppPreview from './AppPreview'; // Adjust path as needed
 
 // Admin Login Component
 const AdminLogin = ({ onAdminLogin }) => {
@@ -180,6 +181,7 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
+          <Route path="/app_preview" element={<AppPreview />} />
           <Route path="/admin" element={<AdminRoute />} />
           <Route path="/" element={<UserRoute />} />
           {/* Redirect any unknown routes to user interface */}
