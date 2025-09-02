@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Trash2 } from 'lucide-react';
 import WineForm from './WineForm';
+import { createEventWithCode } from './supabaseHelpers';
 
 const CreateEventForm = ({ user, onBack, onEventCreated }) => {
+  // Add debugging to see if this component is actually rendering
+  console.log('🔍 CreateEventForm RENDERED with props:', { 
+    user: user?.id, 
+    onBack: typeof onBack, 
+    onEventCreated: typeof onEventCreated 
+  });
+
   const [eventForm, setEventForm] = useState({
     event_name: '',
     event_date: '',
@@ -11,6 +19,14 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
     description: '',
     wines: []
   });
+
+  // Add useEffect to log when component mounts
+  useEffect(() => {
+    console.log('✅ CreateEventForm component MOUNTED');
+    return () => {
+      console.log('❌ CreateEventForm component UNMOUNTED');
+    };
+  }, []);
 
   const createEvent = async () => {
     if (!eventForm.event_name || !eventForm.event_date) {
@@ -21,10 +37,7 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
     console.log('Creating event with wines:', eventForm.wines);
 
     try {
-      // Import helper function
-      const { createEventWithCode } = await import('./supabaseHelpers');
-      
-      // Create event with auto-generated code
+      // Fixed: No more dynamic import - using static import from top of file
       const { data: eventData, error: eventError, eventCode } = await createEventWithCode({
         admin_id: user.id,
         event_name: eventForm.event_name,
@@ -84,22 +97,41 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
     }
   };
 
-  const handleAddWine = (wineData) => {
-    setEventForm(prev => ({
-      ...prev,
-      wines: [...prev.wines, wineData]
-    }));
-  };
+  // Fixed: Use useCallback and add extensive debugging
+  const handleAddWine = useCallback((wineData) => {
+    console.log('🍷 handleAddWine called with:', wineData);
+    console.log('🍷 Current wines:', eventForm.wines.length);
+    setEventForm(prev => {
+      const newState = {
+        ...prev,
+        wines: [...prev.wines, wineData]
+      };
+      console.log('🍷 New wines count:', newState.wines.length);
+      return newState;
+    });
+  }, [eventForm.wines.length]);
 
-  const removeWineFromEvent = (index) => {
+  const removeWineFromEvent = useCallback((index) => {
     setEventForm(prev => ({
       ...prev,
       wines: prev.wines.filter((_, i) => i !== index)
     }));
-  };
+  }, []);
+
+  // Add debugging for the render
+  console.log('🔄 About to render. handleAddWine type:', typeof handleAddWine);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Add prominent debug info at top */}
+      <div className="bg-yellow-100 p-4 rounded border-2 border-yellow-300">
+        <h3 className="font-bold text-yellow-800">🐛 DEBUG INFO</h3>
+        <p className="text-yellow-700">CreateEventForm is rendering</p>
+        <p className="text-yellow-700">User ID: {user?.id}</p>
+        <p className="text-yellow-700">handleAddWine type: {typeof handleAddWine}</p>
+        <p className="text-yellow-700">Current wines: {eventForm.wines.length}</p>
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Create New Event</h2>
         <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
@@ -146,7 +178,14 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
       </div>
 
       {/* Wine Form Component */}
-      <WineForm onAddWine={handleAddWine} />
+      <WineForm 
+        onAddWine={handleAddWine}
+        key="wine-form"
+      />
+      {/* Debug info */}
+      <div className="text-xs text-gray-500 p-2">
+        Debug: handleAddWine type: {typeof handleAddWine}
+      </div>
 
       {/* Wine List */}
       {eventForm.wines.length > 0 && (
