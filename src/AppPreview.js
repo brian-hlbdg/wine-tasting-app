@@ -761,7 +761,7 @@ const AppPreview = () => {
               className="bg-white text-gray-900 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all animate-pulse-gentle"
               onClick={() => alert('🚀 Welcome to Palate Collectif!\n\nIn the full version, this would take you to account creation where you can start organizing wine events immediately.')}
             >
-              🚀 Get Started Free
+              🚀 Get Started
             </button>
             <button 
               className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-gray-900 transition-all"
