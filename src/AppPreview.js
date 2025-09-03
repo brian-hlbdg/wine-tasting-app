@@ -774,15 +774,15 @@ const AppPreview = () => {
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             <div>
               <div className="text-3xl font-bold mb-1">5 min</div>
-              <p className="text-gray-300 text-sm">Average setup time</p>
+              <p className="text-gray-300 text-sm">Event setup time</p>
             </div>
             <div>
-              <div className="text-3xl font-bold mb-1">94%</div>
-              <p className="text-gray-300 text-sm">User satisfaction rate</p>
+              <div className="text-3xl font-bold mb-1">Zero</div>
+              <p className="text-gray-300 text-sm">Paper forms needed</p>
             </div>
             <div>
-              <div className="text-3xl font-bold mb-1">1000+</div>
-              <p className="text-gray-300 text-sm">Events hosted</p>
+              <div className="text-3xl font-bold mb-1">100%</div>
+              <p className="text-gray-300 text-sm">Digital wine memories</p>
             </div>
           </div>
         </div>
