@@ -35,39 +35,77 @@ const LocationInput = ({ value, onChange, onLocationSelected, className, placeho
   const searchLocations = async (searchTerm) => {
     setIsSearching(true);
     try {
-      const { data, error } = await supabase
-        .from('locations_master')
-        .select('*')
-        .ilike('location_name', `%${searchTerm}%`)
-        .order('usage_count', { ascending: false })
-        .limit(8);
+      // Search in both event_locations and tasting_events main location
+      const searches = [];
 
-      if (!error && data) {
-        setSearchResults(data);
-        setShowDropdown(data.length > 0);
-      } else {
-        setSearchResults([]);
-        setShowDropdown(false);
+      // Search event_locations table
+      searches.push(
+        supabase
+          .from('event_locations')
+          .select('location_name, location_address, location_notes')
+          .ilike('location_name', `%${searchTerm}%`)
+          .limit(5)
+      );
+
+      // Search main event locations from tasting_events
+      searches.push(
+        supabase
+          .from('tasting_events')
+          .select('location')
+          .ilike('location', `%${searchTerm}%`)
+          .not('location', 'is', null)
+          .limit(5)
+      );
+
+      const [eventLocationsResult, mainLocationsResult] = await Promise.all(searches);
+
+      let combinedResults = [];
+
+      // Add event_locations results
+      if (eventLocationsResult.data && !eventLocationsResult.error) {
+        combinedResults = [...combinedResults, ...eventLocationsResult.data.map(loc => ({
+          location_name: loc.location_name,
+          address: loc.location_address,
+          notes: loc.location_notes,
+          source: 'event_locations'
+        }))];
       }
+
+      // Add main event locations
+      if (mainLocationsResult.data && !mainLocationsResult.error) {
+        combinedResults = [...combinedResults, ...mainLocationsResult.data.map(event => ({
+          location_name: event.location,
+          address: null,
+          notes: null,
+          source: 'main_location'
+        }))];
+      }
+
+      // Remove duplicates based on location_name
+      const uniqueResults = [];
+      const seen = new Set();
+
+      combinedResults.forEach(location => {
+        const key = location.location_name?.toLowerCase();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          uniqueResults.push(location);
+        }
+      });
+
+      setSearchResults(uniqueResults.slice(0, 8));
+      setShowDropdown(uniqueResults.length > 0);
+
     } catch (error) {
       console.error('Location search error:', error);
       setSearchResults([]);
+      setShowDropdown(false);
     } finally {
       setIsSearching(false);
     }
   };
 
-  const selectLocation = async (location) => {
-    // Update usage count
-    try {
-      await supabase
-        .from('locations_master')
-        .update({ usage_count: (location.usage_count || 0) + 1 })
-        .eq('id', location.id);
-    } catch (error) {
-      console.error('Error updating location usage count:', error);
-    }
-
+  const selectLocation = (location) => {
     onChange(location.location_name);
     
     if (onLocationSelected) {
@@ -112,7 +150,7 @@ const LocationInput = ({ value, onChange, onLocationSelected, className, placeho
         >
           {searchResults.map((location, index) => (
             <div
-              key={`${location.id}-${index}`}
+              key={`${location.location_name}-${index}`}
               onClick={() => selectLocation(location)}
               className="p-3 hover:bg-amber-50 cursor-pointer border-b border-gray-100 last:border-b-0"
             >
@@ -122,12 +160,12 @@ const LocationInput = ({ value, onChange, onLocationSelected, className, placeho
                   {location.address && (
                     <div className="text-sm text-gray-500">{location.address}</div>
                   )}
-                  {location.location_notes && (
-                    <div className="text-xs text-gray-400 mt-1">{location.location_notes}</div>
+                  {location.notes && (
+                    <div className="text-xs text-gray-400 mt-1">{location.notes}</div>
                   )}
                 </div>
                 <div className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded ml-2">
-                  {location.usage_count || 0}x
+                  {location.source === 'event_locations' ? 'Venue' : 'Event'}
                 </div>
               </div>
             </div>

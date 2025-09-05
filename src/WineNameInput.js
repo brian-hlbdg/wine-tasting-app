@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 
 const WineNameInput = ({ value, onChange, onWineSelected, className, placeholder = "Wine name" }) => {
@@ -8,6 +8,126 @@ const WineNameInput = ({ value, onChange, onWineSelected, className, placeholder
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
+  // Helper function to parse grape varieties
+  const parseGrapeVarieties = useCallback((grapes) => {
+    if (!grapes) return null;
+    if (grapes.startsWith('[') && grapes.endsWith(']')) {
+      try {
+        return JSON.parse(grapes);
+      } catch (e) {
+        return [grapes];
+      }
+    }
+    return [grapes];
+  }, []);
+
+  // Helper function to parse food pairings
+  const parseFoodPairings = useCallback((harmonize) => {
+    if (!harmonize) return null;
+    if (harmonize.startsWith('[') && harmonize.endsWith(']')) {
+      try {
+        return JSON.parse(harmonize);
+      } catch (e) {
+        return [harmonize];
+      }
+    }
+    return [harmonize];
+  }, []);
+
+  // Helper function to remove duplicates
+  const removeDuplicates = useCallback((results) => {
+    const seen = new Set();
+    return results.filter(wine => {
+      const key = `${wine.wine_name?.toLowerCase()}-${wine.producer?.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, []);
+
+  const searchWines = useCallback(async (searchTerm) => {
+    setIsSearching(true);
+    try {
+      const searches = [];
+
+      // Search WineName table (now with renamed columns)
+      searches.push(
+        supabase
+          .from('WineName')
+          .select(`
+            "WineID" as id,
+            wine_name,
+            producer,
+            vintage,
+            wine_type,
+            beverage_type,
+            region,
+            country,
+            price_point,
+            alcohol_content,
+            sommelier_notes,
+            image_url,
+            grape_varieties,
+            wine_style,
+            food_pairings,
+            usage_count,
+            "Website" as winery_website,
+            "Grapes" as original_grapes,
+            "Harmonize" as original_harmonize,
+            "Body" as body_style
+          `)
+          .or(`wine_name.ilike.%${searchTerm}%,producer.ilike.%${searchTerm}%`)
+          .limit(6)
+      );
+
+      // Search event_wines
+      searches.push(
+        supabase
+          .from('event_wines')
+          .select(`
+            id, wine_name, producer, vintage, wine_type, beverage_type,
+            region, country, price_point, alcohol_content, sommelier_notes,
+            image_url, grape_varieties, wine_style, food_pairings
+          `)
+          .or(`wine_name.ilike.%${searchTerm}%,producer.ilike.%${searchTerm}%`)
+          .limit(6)
+      );
+
+      const [catalogResult, eventWinesResult] = await Promise.all(searches);
+
+      // Combine results
+      const catalogWines = (catalogResult.data || []).map(wine => ({
+        ...wine,
+        source: 'wine_catalog',
+        // Parse original fields if needed
+        grape_varieties: wine.grape_varieties || parseGrapeVarieties(wine.original_grapes),
+        food_pairings: wine.food_pairings || parseFoodPairings(wine.original_harmonize),
+        wine_style: wine.wine_style || (wine.body_style ? [wine.body_style] : null)
+      }));
+
+      const eventWines = (eventWinesResult.data || []).map(wine => ({
+        ...wine,
+        source: 'event_wines',
+        usage_count: 0
+      }));
+
+      const allResults = [...catalogWines, ...eventWines];
+
+      // Remove duplicates and sort
+      const uniqueResults = removeDuplicates(allResults);
+      
+      setSearchResults(uniqueResults.slice(0, 8));
+      setShowDropdown(uniqueResults.length > 0);
+
+    } catch (error) {
+      console.error('Wine search error:', error);
+      setSearchResults([]);
+      setShowDropdown(false);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [parseGrapeVarieties, parseFoodPairings, removeDuplicates]);
+
   useEffect(() => {
     if (value && value.length >= 2) {
       searchWines(value);
@@ -15,7 +135,7 @@ const WineNameInput = ({ value, onChange, onWineSelected, className, placeholder
       setSearchResults([]);
       setShowDropdown(false);
     }
-  }, [value]);
+  }, [value, searchWines]);
 
   // Handle clicks outside to close dropdown
   useEffect(() => {
@@ -33,69 +153,19 @@ const WineNameInput = ({ value, onChange, onWineSelected, className, placeholder
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const searchWines = async (searchTerm) => {
-    setIsSearching(true);
-    try {
-      // Search in event_wines table - your actual table
-      const { data: eventWinesData, error: eventWinesError } = await supabase
-        .from('event_wines')
-        .select(`
-          wine_name,
-          producer,
-          vintage,
-          wine_type,
-          region,
-          country,
-          price_point,
-          alcohol_content,
-          sommelier_notes,
-          image_url,
-          grape_varieties,
-          wine_style,
-          food_pairings,
-          tasting_notes,
-          winemaker_notes,
-          technical_details,
-          awards
-        `)
-        .or(`wine_name.ilike.%${searchTerm}%,producer.ilike.%${searchTerm}%`)
-        .limit(10);
-
-      if (eventWinesError) {
-        console.error('Search error:', eventWinesError);
-        setSearchResults([]);
-        setShowDropdown(false);
-        return;
+  const selectWine = async (wine) => {
+    // Update usage count if it's from wine catalog
+    if (wine.source === 'wine_catalog' && wine.id) {
+      try {
+        await supabase
+          .from('WineName')
+          .update({ usage_count: (wine.usage_count || 0) + 1 })
+          .eq('WineID', wine.id);
+      } catch (error) {
+        console.error('Error updating usage count:', error);
       }
-
-      // Remove duplicates based on wine_name and producer
-      const uniqueResults = [];
-      const seen = new Set();
-
-      eventWinesData?.forEach(wine => {
-        const key = `${wine.wine_name?.toLowerCase()}-${wine.producer?.toLowerCase()}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          uniqueResults.push({
-            ...wine,
-            source: 'event_wines'
-          });
-        }
-      });
-
-      setSearchResults(uniqueResults.slice(0, 8));
-      setShowDropdown(uniqueResults.length > 0);
-
-    } catch (error) {
-      console.error('Wine search error:', error);
-      setSearchResults([]);
-      setShowDropdown(false);
-    } finally {
-      setIsSearching(false);
     }
-  };
 
-  const selectWine = (wine) => {
     // Update the input value
     onChange(wine.wine_name);
     
@@ -142,7 +212,7 @@ const WineNameInput = ({ value, onChange, onWineSelected, className, placeholder
         >
           {searchResults.map((wine, index) => (
             <div
-              key={`${wine.wine_name}-${wine.producer}-${index}`}
+              key={`${wine.source}-${wine.id}-${index}`}
               onClick={() => selectWine(wine)}
               className="p-3 hover:bg-amber-50 cursor-pointer border-b border-gray-100 last:border-b-0"
             >
@@ -166,9 +236,38 @@ const WineNameInput = ({ value, onChange, onWineSelected, className, placeholder
                       {wine.price_point && ` • ${wine.price_point}`}
                     </div>
                   )}
+                  {/* Show grape varieties if available */}
+                  {wine.grape_varieties && Array.isArray(wine.grape_varieties) && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {wine.grape_varieties.join(', ')}
+                    </div>
+                  )}
+                  {/* Show original grapes if grape_varieties not available */}
+                  {!wine.grape_varieties && wine.original_grapes && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {wine.original_grapes}
+                    </div>
+                  )}
+                  {/* Show winery website if available */}
+                  {wine.winery_website && (
+                    <div className="text-xs text-blue-500 mt-1">
+                      🌐 {wine.winery_website}
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded ml-2">
-                  DB
+                <div className="ml-2 flex flex-col items-end gap-1">
+                  <div className={`text-xs px-2 py-1 rounded ${
+                    wine.source === 'wine_catalog' 
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {wine.source === 'wine_catalog' ? 'Catalog' : 'Event'}
+                  </div>
+                  {wine.usage_count > 0 && (
+                    <div className="text-xs text-gray-500">
+                      {wine.usage_count}x used
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
