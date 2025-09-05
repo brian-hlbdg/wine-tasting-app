@@ -6,6 +6,7 @@ import UserInterface from './UserInterface';
 import WineRatingForm from './WineRatingForm';
 import JoinEventForm from './JoinEventForm';
 import AppPreview from './AppPreview'; // Adjust path as needed
+import { supabase } from './supabaseClient';
 
 // Admin Login Component
 const AdminLogin = ({ onAdminLogin }) => {
@@ -19,12 +20,46 @@ const AdminLogin = ({ onAdminLogin }) => {
     setLoading(true);
     setError('');
     
-    // Replace this with your actual admin authentication logic
-    if (email === 'admin@winetasting.com' && password === 'admin123') {
-      onAdminLogin({ id: 1, email, name: 'Admin User', is_admin: true });
-    } else {
-      setError('Invalid email or password');
+    try {
+      // Use Supabase authentication
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+      
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is admin
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+      
+      if (profileError || !profile?.is_admin) {
+        setError('Access denied. Admin privileges required.');
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      // Success - pass the authenticated admin user
+      onAdminLogin({
+        id: profile.id,
+        email: profile.eventbrite_email || authData.user.email,
+        name: profile.display_name,
+        is_admin: profile.is_admin
+      });
+
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An unexpected error occurred');
     }
+    
     setLoading(false);
   };
 
@@ -47,7 +82,7 @@ const AdminLogin = ({ onAdminLogin }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="admin@winetasting.com"
+              placeholder="admin@example.com"
               required
             />
           </div>
@@ -65,7 +100,9 @@ const AdminLogin = ({ onAdminLogin }) => {
           </div>
           
           {error && (
-            <div className="text-red-300 text-sm text-center">{error}</div>
+            <div className="text-red-300 text-sm text-center bg-red-900/20 p-3 rounded-lg">
+              {error}
+            </div>
           )}
           
           <button
@@ -76,7 +113,6 @@ const AdminLogin = ({ onAdminLogin }) => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        
         <div className="mt-4 p-3 bg-white/5 rounded-lg">
           <p className="text-xs text-purple-200">Demo credentials:</p>
           <p className="text-xs text-white">admin@winetasting.com / admin123</p>
