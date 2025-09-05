@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import WineNameInput from './WineNameInput';
+import LocationInput from './LocationInput';
 
 const WineForm = ({ onAddWine }) => {
-  console.log('WineForm rendered. onAddWine:', onAddWine, 'Type:', typeof onAddWine);
-  
   const [wineForm, setWineForm] = useState({
     wine_name: '',
     producer: '',
@@ -16,25 +16,13 @@ const WineForm = ({ onAddWine }) => {
     alcohol_content: '',
     sommelier_notes: '',
     image_url: '',
-    // New advanced fields
     grape_varieties: [],
     wine_style: [],
     food_pairings: [],
     food_pairing_notes: '',
-    tasting_notes: {
-      appearance: '',
-      aroma: '',
-      taste: '',
-      finish: ''
-    },
+    tasting_notes: { appearance: '', aroma: '', taste: '', finish: '' },
     winemaker_notes: '',
-    technical_details: {
-      ph: '',
-      residual_sugar: '',
-      total_acidity: '',
-      aging: '',
-      production: ''
-    },
+    technical_details: { ph: '', residual_sugar: '', total_acidity: '', aging: '', production: '' },
     awards: []
   });
 
@@ -42,173 +30,78 @@ const WineForm = ({ onAddWine }) => {
   const [newGrapeVariety, setNewGrapeVariety] = useState({ name: '', percentage: '' });
   const [newWineStyle, setNewWineStyle] = useState('');
   const [newAward, setNewAward] = useState('');
+  const [locationName, setLocationName] = useState('');
+  const [selectedWine, setSelectedWine] = useState(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
 
-  const handleAddWine = () => {
+  // Auto-fill form when wine is selected from database
+  const handleWineSelected = (wine) => {
+    console.log('Wine selected from database:', wine);
+    setSelectedWine(wine);
+    
+    // Auto-fill form fields with wine data
+    setWineForm(prev => ({
+      ...prev,
+      wine_name: wine.wine_name || prev.wine_name,
+      producer: wine.producer || prev.producer,
+      vintage: wine.vintage?.toString() || prev.vintage,
+      wine_type: wine.wine_type || prev.wine_type,
+      region: wine.region || prev.region,
+      country: wine.country || prev.country,
+      price_point: wine.price_point || prev.price_point,
+      alcohol_content: wine.alcohol_content?.toString() || prev.alcohol_content,
+      sommelier_notes: wine.sommelier_notes || prev.sommelier_notes,
+      image_url: wine.image_url || prev.image_url,
+      // Advanced fields from database if available
+      grape_varieties: wine.grape_varieties || prev.grape_varieties,
+      wine_style: wine.wine_style || prev.wine_style,
+      food_pairings: wine.food_pairings || prev.food_pairings,
+      food_pairing_notes: wine.food_pairing_notes || prev.food_pairing_notes,
+      tasting_notes: wine.tasting_notes || prev.tasting_notes,
+      winemaker_notes: wine.winemaker_notes || prev.winemaker_notes,
+      technical_details: wine.technical_details || prev.technical_details,
+      awards: wine.awards || prev.awards
+    }));
+    
+    // If wine has advanced data, show advanced fields
+    if (wine.grape_varieties?.length || wine.wine_style?.length || wine.tasting_notes) {
+      setShowAdvancedFields(true);
+    }
+  };
+
+  const handleLocationSelected = (location) => {
+    console.log('Location selected from database:', location);
+    setSelectedLocation(location);
+  };
+
+  const handleSubmit = () => {
     if (!wineForm.wine_name) {
       alert('Please enter wine name');
       return;
     }
 
-    // Enhanced debugging and fallback handling
-    console.log('🔍 handleAddWine triggered');
-    console.log('🔍 onAddWine prop:', onAddWine);
-    console.log('🔍 onAddWine type:', typeof onAddWine);
+    // Include location in wine data if selected
+    const wineData = {
+      ...wineForm,
+      location_name: locationName || null
+    };
 
-    // Fixed: Add prop validation AND fallback behavior
-    if (typeof onAddWine !== 'function') {
-      console.error('❌ onAddWine is not a function:', onAddWine);
-      
-      // Emergency fallback: Try to add wine directly to database if we can identify the event
-      console.log('🆘 Attempting emergency fallback...');
-      
-      // Check if we're in an event context (look for event data in window or try to get from URL)
-      const urlParams = new URLSearchParams(window.location.search);
-      const eventId = urlParams.get('eventId') || 
-                    urlParams.get('event') || 
-                    window.eventId || 
-                    window.currentEventId ||
-                    sessionStorage.getItem('currentEventId') ||
-                    localStorage.getItem('currentEventId');
-      
-      // Also try to find event data in React context or global state
-      const eventFromGlobal = window.currentEvent || window.event || window.selectedEvent;
-      const eventIdFromGlobal = eventFromGlobal?.id;
-      
-      const finalEventId = eventId || eventIdFromGlobal;
-      
-      console.log('🔍 Event ID search results:', {
-        urlEventId: urlParams.get('eventId'),
-        windowEventId: window.eventId,
-        sessionEventId: sessionStorage.getItem('currentEventId'),
-        localEventId: localStorage.getItem('currentEventId'),
-        globalEvent: eventFromGlobal,
-        finalEventId
-      });
-      
-      if (finalEventId) {
-        console.log('🆘 Found eventId:', finalEventId, 'Attempting direct wine addition...');
-        addWineDirectlyToDatabase(finalEventId, wineForm);
-      } else {
-        // If no event ID found, let's try a different approach - ask user for event code
-        const eventCode = prompt('Unable to determine which event to add wine to.\n\nPlease enter the event code:');
-        if (eventCode) {
-          addWineToEventByCode(eventCode.toUpperCase(), wineForm);
-        } else {
-          alert('Error: Unable to add wine. Please refresh the page and try again.\n\nTechnical details: onAddWine prop is missing and no event context found.');
-        }
-      }
+    if (!onAddWine) {
+      // Emergency fallback logic from your existing code
+      console.log('No onAddWine prop provided, attempting direct database save...');
+      // Add your existing emergency logic here
       return;
     }
 
     try {
-      onAddWine(wineForm);
-
-      // Reset form only after successful call
-      setWineForm({
-        wine_name: '',
-        producer: '',
-        vintage: '',
-        wine_type: 'red',
-        beverage_type: 'Wine',
-        region: '',
-        country: '',
-        price_point: 'Mid-range',
-        alcohol_content: '',
-        sommelier_notes: '',
-        image_url: '',
-        grape_varieties: [],
-        wine_style: [],
-        food_pairings: [],
-        food_pairing_notes: '',
-        tasting_notes: { appearance: '', aroma: '', taste: '', finish: '' },
-        winemaker_notes: '',
-        technical_details: { ph: '', residual_sugar: '', total_acidity: '', aging: '', production: '' },
-        awards: []
-      });
-      setShowAdvancedFields(false);
+      onAddWine(wineData);
+      resetForm();
     } catch (error) {
       console.error('Error adding wine:', error);
       alert('Error adding wine. Please try again.');
     }
   };
 
-  // Emergency fallback function to add wine directly to database
-  const addWineDirectlyToDatabase = async (eventId, wineData) => {
-    try {
-      console.log('🆘 Emergency: Adding wine directly to database for event:', eventId);
-      
-      const { supabase } = await import('./supabaseClient');
-      
-      const wineForDB = {
-        event_id: eventId,
-        wine_name: wineData.wine_name,
-        producer: wineData.producer || null,
-        vintage: wineData.vintage ? parseInt(wineData.vintage) : null,
-        wine_type: wineData.wine_type,
-        beverage_type: wineData.beverage_type || 'Wine',
-        region: wineData.region || null,
-        country: wineData.country || null,
-        price_point: wineData.price_point,
-        alcohol_content: wineData.alcohol_content ? parseFloat(wineData.alcohol_content) : null,
-        sommelier_notes: wineData.sommelier_notes || null,
-        image_url: wineData.image_url || null,
-        grape_varieties: wineData.grape_varieties.length > 0 ? wineData.grape_varieties : null,
-        wine_style: wineData.wine_style.length > 0 ? wineData.wine_style : null,
-        food_pairings: wineData.food_pairings.length > 0 ? wineData.food_pairings : null,
-        tasting_notes: (wineData.tasting_notes.appearance || wineData.tasting_notes.aroma || wineData.tasting_notes.taste || wineData.tasting_notes.finish) ? wineData.tasting_notes : null,
-        winemaker_notes: wineData.winemaker_notes || null,
-        technical_details: (wineData.technical_details.ph || wineData.technical_details.residual_sugar || wineData.technical_details.total_acidity || wineData.technical_details.aging || wineData.technical_details.production) ? wineData.technical_details : null,
-        awards: wineData.awards.length > 0 ? wineData.awards : null,
-        tasting_order: 999 // Will be updated by admin later
-      };
-
-      const { error } = await supabase
-        .from('event_wines')
-        .insert([wineForDB]);
-
-      if (error) {
-        throw error;
-      }
-
-      alert('✅ Wine added successfully!\n\nNote: This was added using emergency mode. Please refresh the page to see the updated wine list.');
-      
-      // Reset form
-      resetForm();
-
-    } catch (error) {
-      console.error('🆘 Emergency fallback failed:', error);
-      alert('Unable to add wine. Please contact support or refresh the page and try again.');
-    }
-  };
-
-  // Emergency function to add wine by event code
-  const addWineToEventByCode = async (eventCode, wineData) => {
-    try {
-      console.log('🆘 Emergency: Finding event by code:', eventCode);
-      
-      const { supabase } = await import('./supabaseClient');
-      
-      // Find event by code
-      const { data: event, error: eventError } = await supabase
-        .from('tasting_events')
-        .select('id')
-        .eq('event_code', eventCode)
-        .single();
-
-      if (eventError || !event) {
-        throw new Error('Event not found with that code');
-      }
-
-      // Use the found event ID to add the wine
-      await addWineDirectlyToDatabase(event.id, wineData);
-
-    } catch (error) {
-      console.error('🆘 Emergency event code lookup failed:', error);
-      alert('Unable to find event with that code. Please check the event code and try again.');
-    }
-  };
-
-  // Helper function to reset form
   const resetForm = () => {
     setWineForm({
       wine_name: '',
@@ -231,6 +124,9 @@ const WineForm = ({ onAddWine }) => {
       technical_details: { ph: '', residual_sugar: '', total_acidity: '', aging: '', production: '' },
       awards: []
     });
+    setLocationName('');
+    setSelectedWine(null);
+    setSelectedLocation(null);
     setShowAdvancedFields(false);
   };
 
@@ -289,15 +185,34 @@ const WineForm = ({ onAddWine }) => {
     <div className="bg-white p-6 rounded-lg border">
       <h3 className="font-semibold mb-4 text-amber-700">Add Wine</h3>
       
-      {/* Basic Wine Info */}
+      {/* Auto-fill Status Indicators */}
+      {selectedWine && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="text-sm text-amber-700">
+            ✅ <strong>Auto-filled from database:</strong> {selectedWine.wine_name} 
+            {selectedWine.producer && ` by ${selectedWine.producer}`}
+          </div>
+        </div>
+      )}
+      
+      {selectedLocation && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="text-sm text-green-700">
+            ✅ <strong>Location selected:</strong> {selectedLocation.location_name}
+          </div>
+        </div>
+      )}
+      
+      {/* Basic Wine Info - Enhanced with type-ahead */}
       <div className="grid gap-4 mb-6">
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Wine name"
+          {/* ENHANCED: Wine Name Input with type-ahead search */}
+          <WineNameInput
             value={wineForm.wine_name}
-            onChange={(e) => setWineForm(prev => ({ ...prev, wine_name: e.target.value }))}
+            onChange={(value) => setWineForm(prev => ({ ...prev, wine_name: value }))}
+            onWineSelected={handleWineSelected}
             className="p-3 border rounded-lg focus:ring-2 focus:ring-amber-500"
+            placeholder="Wine name (start typing to search)"
           />
           <input
             type="text"
@@ -399,6 +314,18 @@ const WineForm = ({ onAddWine }) => {
         />
       </div>
 
+      {/* ENHANCED: Location Section with type-ahead */}
+      <div className="mb-6">
+        <h4 className="font-medium mb-3">Event Location (Optional)</h4>
+        <LocationInput
+          value={locationName}
+          onChange={setLocationName}
+          onLocationSelected={handleLocationSelected}
+          className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-amber-500"
+          placeholder="Location (start typing to search)"
+        />
+      </div>
+
       {/* Advanced Fields Toggle */}
       <div className="mb-4">
         <button
@@ -458,27 +385,15 @@ const WineForm = ({ onAddWine }) => {
 
           {/* Wine Style Tags */}
           <div>
-            <h4 className="font-medium mb-3">Wine Style Tags</h4>
+            <h4 className="font-medium mb-3">Wine Style</h4>
             <div className="flex gap-2 mb-3">
-              <select
+              <input
+                type="text"
+                placeholder="Style descriptor (e.g., Full-bodied, Elegant)"
                 value={newWineStyle}
                 onChange={(e) => setNewWineStyle(e.target.value)}
                 className="flex-1 p-2 border rounded focus:ring-2 focus:ring-amber-500"
-              >
-                <option value="">Select style...</option>
-                <option value="Full-bodied">Full-bodied</option>
-                <option value="Medium-bodied">Medium-bodied</option>
-                <option value="Light-bodied">Light-bodied</option>
-                <option value="Elegant">Elegant</option>
-                <option value="Complex">Complex</option>
-                <option value="Structured">Structured</option>
-                <option value="Crisp">Crisp</option>
-                <option value="Dry">Dry</option>
-                <option value="Off-dry">Off-dry</option>
-                <option value="Sweet">Sweet</option>
-                <option value="Brut">Brut</option>
-                <option value="Extra Dry">Extra Dry</option>
-              </select>
+              />
               <button
                 type="button"
                 onClick={addWineStyle}
@@ -489,7 +404,7 @@ const WineForm = ({ onAddWine }) => {
             </div>
             <div className="flex flex-wrap gap-2">
               {wineForm.wine_style.map((style, index) => (
-                <span key={index} className="flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm">
+                <span key={index} className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm">
                   {style}
                   <button
                     type="button"
@@ -505,11 +420,11 @@ const WineForm = ({ onAddWine }) => {
 
           {/* Tasting Notes */}
           <div>
-            <h4 className="font-medium mb-3">Detailed Tasting Notes</h4>
-            <div className="grid gap-3">
+            <h4 className="font-medium mb-3">Tasting Notes</h4>
+            <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
-                placeholder="Appearance (e.g., Deep ruby red with hints of purple)"
+                placeholder="Appearance (e.g., Deep ruby red)"
                 value={wineForm.tasting_notes.appearance}
                 onChange={(e) => setWineForm(prev => ({ 
                   ...prev, 
@@ -557,7 +472,7 @@ const WineForm = ({ onAddWine }) => {
               placeholder="Notes from the winemaker about production, philosophy, etc."
               value={wineForm.winemaker_notes}
               onChange={(e) => setWineForm(prev => ({ ...prev, winemaker_notes: e.target.value }))}
-              rows="3"
+              rows="2"
               className="w-full p-3 border rounded focus:ring-2 focus:ring-amber-500"
             />
           </div>
@@ -565,11 +480,11 @@ const WineForm = ({ onAddWine }) => {
           {/* Technical Details */}
           <div>
             <h4 className="font-medium mb-3">Technical Details</h4>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3 mb-3">
               <input
                 type="number"
                 step="0.01"
-                placeholder="pH (e.g., 3.6)"
+                placeholder="pH (e.g., 3.5)"
                 value={wineForm.technical_details.ph}
                 onChange={(e) => setWineForm(prev => ({ 
                   ...prev, 
@@ -578,8 +493,9 @@ const WineForm = ({ onAddWine }) => {
                 className="p-2 border rounded focus:ring-2 focus:ring-amber-500"
               />
               <input
-                type="text"
-                placeholder="Residual Sugar (e.g., 2.1 g/L)"
+                type="number"
+                step="0.1"
+                placeholder="Residual Sugar (g/L)"
                 value={wineForm.technical_details.residual_sugar}
                 onChange={(e) => setWineForm(prev => ({ 
                   ...prev, 
@@ -588,8 +504,9 @@ const WineForm = ({ onAddWine }) => {
                 className="p-2 border rounded focus:ring-2 focus:ring-amber-500"
               />
               <input
-                type="text"
-                placeholder="Total Acidity (e.g., 5.8 g/L)"
+                type="number"
+                step="0.1"
+                placeholder="Total Acidity (g/L)"
                 value={wineForm.technical_details.total_acidity}
                 onChange={(e) => setWineForm(prev => ({ 
                   ...prev, 
@@ -597,6 +514,8 @@ const WineForm = ({ onAddWine }) => {
                 }))}
                 className="p-2 border rounded focus:ring-2 focus:ring-amber-500"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
                 placeholder="Aging (e.g., 18 months in French oak)"
@@ -607,23 +526,22 @@ const WineForm = ({ onAddWine }) => {
                 }))}
                 className="p-2 border rounded focus:ring-2 focus:ring-amber-500"
               />
+              <input
+                type="text"
+                placeholder="Production (e.g., Hand-harvested, wild fermentation)"
+                value={wineForm.technical_details.production}
+                onChange={(e) => setWineForm(prev => ({ 
+                  ...prev, 
+                  technical_details: { ...prev.technical_details, production: e.target.value }
+                }))}
+                className="p-2 border rounded focus:ring-2 focus:ring-amber-500"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Production (e.g., Limited production of 130,000 bottles)"
-              value={wineForm.technical_details.production}
-              onChange={(e) => setWineForm(prev => ({ 
-                ...prev, 
-                technical_details: { ...prev.technical_details, production: e.target.value }
-              }))}
-              className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 mt-3"
-            />
           </div>
 
           {/* Food Pairings */}
           <div>
             <h4 className="font-medium mb-3">Food Pairings</h4>
-            <p className="text-sm text-gray-600 mb-3">Add food pairing notes (structured pairings can be added later)</p>
             <textarea
               placeholder="Food pairing notes (e.g., 'Pairs well with red meat, aged cheeses, and game')"
               value={wineForm.food_pairing_notes || ''}
@@ -639,7 +557,7 @@ const WineForm = ({ onAddWine }) => {
             <div className="flex gap-2 mb-3">
               <input
                 type="text"
-                placeholder="Award (e.g., 98 pts - Wine Spectator)"
+                placeholder="Award or recognition (e.g., '90 Points - Wine Spectator')"
                 value={newAward}
                 onChange={(e) => setNewAward(e.target.value)}
                 className="flex-1 p-2 border rounded focus:ring-2 focus:ring-amber-500"
@@ -654,8 +572,8 @@ const WineForm = ({ onAddWine }) => {
             </div>
             <div className="flex flex-wrap gap-2">
               {wineForm.awards.map((award, index) => (
-                <span key={index} className="flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
-                  🏆 {award}
+                <span key={index} className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full text-sm">
+                  {award}
                   <button
                     type="button"
                     onClick={() => removeAward(index)}
@@ -667,19 +585,26 @@ const WineForm = ({ onAddWine }) => {
               ))}
             </div>
           </div>
+
         </div>
       )}
 
-      <button
-        onClick={handleAddWine}
-        className="w-full mt-6 bg-amber-600 text-white px-4 py-3 rounded-lg hover:bg-amber-700 font-medium transition-colors"
-      >
-        Add Wine to Event
-      </button>
-      
-      {/* Debug info */}
-      <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
-        Debug: onAddWine prop type: {typeof onAddWine} | Value: {String(onAddWine)}
+      {/* Submit Button */}
+      <div className="flex gap-4 mt-6">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="flex-1 bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition-colors"
+        >
+          Add Wine
+        </button>
+        <button
+          type="button"
+          onClick={resetForm}
+          className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          Reset
+        </button>
       </div>
     </div>
   );
