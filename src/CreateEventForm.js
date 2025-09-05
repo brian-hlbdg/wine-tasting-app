@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Trash2 } from 'lucide-react';
-import WineForm from './WineForm';
+import { Trash2, Plus, Wine } from 'lucide-react';
+import NewEventWineForm from './NewEventWineForm';
 import { createEventWithCode } from './supabaseHelpers';
 
 const CreateEventForm = ({ user, onBack, onEventCreated }) => {
@@ -19,6 +19,9 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
     description: '',
     wines: []
   });
+
+  // Add state for wine form
+  const [showWineForm, setShowWineForm] = useState(false);
 
   // Add useEffect to log when component mounts
   useEffect(() => {
@@ -70,6 +73,7 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
           grape_varieties: wine.grape_varieties.length > 0 ? wine.grape_varieties : null,
           wine_style: wine.wine_style.length > 0 ? wine.wine_style : null,
           food_pairings: wine.food_pairings.length > 0 ? wine.food_pairings : null,
+          food_pairing_notes: wine.food_pairing_notes || null,
           tasting_notes: (wine.tasting_notes.appearance || wine.tasting_notes.aroma || wine.tasting_notes.taste || wine.tasting_notes.finish) ? wine.tasting_notes : null,
           winemaker_notes: wine.winemaker_notes || null,
           technical_details: (wine.technical_details.ph || wine.technical_details.residual_sugar || wine.technical_details.total_acidity || wine.technical_details.aging || wine.technical_details.production) ? wine.technical_details : null,
@@ -109,6 +113,7 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
       console.log('🍷 New wines count:', newState.wines.length);
       return newState;
     });
+    setShowWineForm(false); // Hide the wine form after adding
   }, [eventForm.wines.length]);
 
   const removeWineFromEvent = useCallback((index) => {
@@ -119,7 +124,20 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
   }, []);
 
   // Add debugging for the render
-  console.log('🔄 About to render. handleAddWine type:', typeof handleAddWine);
+  console.log('🔄 About to render. showWineForm:', showWineForm, 'handleAddWine type:', typeof handleAddWine);
+
+  // Show wine form if requested
+  if (showWineForm) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <NewEventWineForm
+          onWineAdded={handleAddWine}
+          locations={[]} // Simple form doesn't have locations
+          onCancel={() => setShowWineForm(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -177,20 +195,24 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
         </div>
       </div>
 
-      {/* Wine Form Component */}
-      <WineForm 
-        onAddWine={handleAddWine}
-        key="wine-form"
-      />
-      {/* Debug info */}
-      <div className="text-xs text-gray-500 p-2">
-        Debug: handleAddWine type: {typeof handleAddWine}
-      </div>
+      {/* Wine Management */}
+      <div className="bg-white p-6 rounded-lg border">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-purple-700">
+            <Wine className="w-5 h-5 inline mr-2" />
+            Event Wines ({eventForm.wines.length})
+          </h3>
+          <button
+            onClick={() => setShowWineForm(true)}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Wine
+          </button>
+        </div>
 
-      {/* Wine List */}
-      {eventForm.wines.length > 0 && (
-        <div className="bg-white p-6 rounded-lg border">
-          <h4 className="font-medium mb-4">Wines for this event ({eventForm.wines.length}):</h4>
+        {/* Wine List */}
+        {eventForm.wines.length > 0 && (
           <div className="space-y-3">
             {eventForm.wines.map((wine, index) => (
               <div key={index} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
@@ -200,51 +222,44 @@ const CreateEventForm = ({ user, onBack, onEventCreated }) => {
                     <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
                       {wine.beverage_type}
                     </span>
-                    {wine.wine_style.length > 0 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                        {wine.wine_style[0]}
-                      </span>
-                    )}
+                    <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                      {wine.wine_type}
+                    </span>
                   </div>
                   <div className="text-sm text-gray-600">
                     {wine.producer && <span>{wine.producer}</span>}
                     {wine.vintage && <span> • {wine.vintage}</span>}
                     {wine.region && <span> • {wine.region}</span>}
                   </div>
-                  {wine.grape_varieties.length > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Grapes: {wine.grape_varieties.map(g => `${g.name} (${g.percentage}%)`).join(', ')}
-                    </div>
-                  )}
                 </div>
                 <button
                   onClick={() => removeWineFromEvent(index)}
-                  className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors ml-4"
+                  className="text-red-500 hover:text-red-700 p-2"
+                  title="Remove wine"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Create Event Button */}
-      <div className="bg-white p-6 rounded-lg border">
-        <button
-          onClick={createEvent}
-          disabled={!eventForm.event_name || !eventForm.event_date}
-          className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-4 rounded-lg font-semibold text-lg transition-colors"
-        >
-          Create Event with {eventForm.wines.length} Wine{eventForm.wines.length !== 1 ? 's' : ''}
-        </button>
-        
         {eventForm.wines.length === 0 && (
-          <p className="text-center text-gray-500 text-sm mt-2">
-            Add at least one wine to create your event
-          </p>
+          <div className="text-center py-8 text-gray-500">
+            <Wine className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p>No wines added yet</p>
+            <p className="text-sm">Click "Add Wine" to get started</p>
+          </div>
         )}
       </div>
+
+      {/* Create Event Button */}
+      <button
+        onClick={createEvent}
+        className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 font-semibold"
+      >
+        Create Event
+      </button>
     </div>
   );
 };

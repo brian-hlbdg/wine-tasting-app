@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Trash2, Plus, MapPin, Wine, GripVertical, Save } from 'lucide-react';
 import WineForm from './WineForm';
+import ExistingEventWineForm from './ExistingEventWineForm';
 
 const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = null }) => {
   const [eventForm, setEventForm] = useState({
@@ -97,6 +98,7 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
     setLocations(prev => prev.filter((_, index) => index !== locationIndex));
   };
 
+  // Handle wine addition - different logic for new vs existing events
   const handleAddWine = (wineData) => {
     if (editingWineIndex !== null) {
       // Editing existing wine
@@ -115,6 +117,14 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
       }));
     }
     setShowWineForm(false);
+  };
+
+  // Handle wine added to existing event - refresh the data
+  const handleWineAddedToExistingEvent = () => {
+    // Reload the event data to show the new wine
+    loadEventForEditing();
+    setShowWineForm(false);
+    setEditingWineIndex(null);
   };
 
   const assignWineToLocation = (wineIndex, locationName) => {
@@ -270,27 +280,48 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
 
   const { unassigned, byLocation } = organizeWinesByLocation();
 
+  // Show appropriate wine form based on create vs edit mode
   if (showWineForm) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-4">
-          <button 
-            onClick={() => {
+    if (editingEvent) {
+      // For EXISTING events, use ExistingEventWineForm which saves directly to database
+      return (
+        <div className="max-w-4xl mx-auto">
+          <ExistingEventWineForm
+            eventId={editingEvent.id}
+            eventName={editingEvent.event_name}
+            onWineAdded={handleWineAddedToExistingEvent}
+            onCancel={() => {
               setShowWineForm(false);
               setEditingWineIndex(null);
             }}
-            className="text-gray-600 hover:text-gray-800"
-          >
-            ← Back to Event
-          </button>
+            initialWine={editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null}
+            isEditing={editingWineIndex !== null}
+          />
         </div>
-        <WineForm 
-          onWineAdded={handleAddWine}
-          locations={locations}
-          initialWine={editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null}
-        />
-      </div>
-    );
+      );
+    } else {
+      // For NEW events, use the regular WineForm (stores in memory)
+      return (
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-4">
+            <button 
+              onClick={() => {
+                setShowWineForm(false);
+                setEditingWineIndex(null);
+              }}
+              className="text-gray-600 hover:text-gray-800"
+            >
+              ← Back to Event
+            </button>
+          </div>
+          <WineForm 
+            onWineAdded={handleAddWine}
+            locations={locations}
+            initialWine={editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null}
+          />
+        </div>
+      );
+    }
   }
 
   return (
@@ -308,6 +339,29 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
           ← Back to Events
         </button>
       </div>
+
+      {/* Show different info based on create vs edit mode */}
+      {editingEvent && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                Editing Existing Event
+              </h3>
+              <div className="mt-2 text-sm text-blue-700">
+                <p>
+                  When you add wines to this existing event, they will be saved immediately to the database and visible to attendees.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Event Details & Locations */}
@@ -440,7 +494,7 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
                 className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                Add Wine
+                {editingEvent ? 'Add Wine to Event' : 'Add Wine'}
               </button>
             </div>
 
