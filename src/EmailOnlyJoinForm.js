@@ -200,7 +200,7 @@ const EmailOnlyJoinForm = ({ eventId, onEventJoined }) => {
           </button>
         </form>
         
-        <div className="mt-6 text-center text-sm text-green-200">
+        <div className="mt-6 text-center text-sm text-white/80">
           <p>Your ratings and notes will be saved to your email address</p>
         </div>
       </div>

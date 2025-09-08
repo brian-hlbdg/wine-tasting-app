@@ -178,8 +178,13 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
           location: eventForm.location,
           description: eventForm.description,
           access_type: eventForm.access_type,
-          admin_id: user.id,  // Add the admin_id
-          is_active: true
+          admin_id: user.id,
+          is_active: true,
+          // Booth customization fields
+          booth_welcome_message: eventForm.access_type === 'email_only' ? eventForm.booth_welcome_message : null,
+          booth_logo_url: eventForm.access_type === 'email_only' ? eventForm.booth_logo_url || null : null,
+          booth_primary_color: eventForm.access_type === 'email_only' ? eventForm.booth_primary_color : null,
+          booth_background_color: eventForm.access_type === 'email_only' ? eventForm.booth_background_color : null
         };
 
         // Generate event code only for event_code access type

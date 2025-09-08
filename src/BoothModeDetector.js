@@ -116,8 +116,8 @@ const BoothModeDetector = ({ onEventJoined }) => {
   // If we have event data, check its access type
   if (eventData) {
     if (eventData.access_type === 'email_only') {
-      // Show email-only join form for booth mode
-      return <EmailOnlyJoinForm eventId={eventData.id} onEventJoined={onEventJoined} />;
+      // Show email-only join form for booth mode with event data
+      return <EmailOnlyJoinForm eventId={eventData.id} eventData={eventData} onEventJoined={onEventJoined} />;
     } else {
       // Show standard join form, but pre-fill the event code if available
       return <JoinEventForm onEventJoined={onEventJoined} prefilledCode={eventData.event_code} />;
