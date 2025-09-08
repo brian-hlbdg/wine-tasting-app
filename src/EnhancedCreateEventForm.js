@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { Trash2, Plus, MapPin, Wine, GripVertical, Save } from 'lucide-react';
+import { Trash2, Plus, MapPin, Wine, GripVertical, Save, Shield, Users } from 'lucide-react';
 import WineForm from './WineForm';
-import ExistingEventWineForm from './ExistingEventWineForm';
 
 const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = null }) => {
   const [eventForm, setEventForm] = useState({
     event_name: '',
     event_date: '',
-    location: '', // This becomes the main event location
+    location: '',
     description: '',
+    access_type: 'event_code', // New field for booth mode
     wines: []
   });
   
@@ -18,6 +18,7 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
   const [newLocationAddress, setNewLocationAddress] = useState('');
   const [showWineForm, setShowWineForm] = useState(false);
   const [editingWineIndex, setEditingWineIndex] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   // Load existing event data if editing
   useEffect(() => {
@@ -34,6 +35,7 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
         event_date: editingEvent.event_date,
         location: editingEvent.location || '',
         description: editingEvent.description || '',
+        access_type: editingEvent.access_type || 'event_code',
         wines: []
       });
 
@@ -63,11 +65,11 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
     if (!newLocationName.trim()) return;
 
     const newLocation = {
-      id: `temp-${Date.now()}`, // Temporary ID for new locations
+      id: `temp-${Date.now()}`,
       location_name: newLocationName.trim(),
       location_address: newLocationAddress.trim() || null,
       location_order: locations.length + 1,
-      isNew: true // Flag to track new locations
+      isNew: true
     };
 
     setLocations(prev => [...prev, newLocation]);
@@ -98,7 +100,6 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
     setLocations(prev => prev.filter((_, index) => index !== locationIndex));
   };
 
-  // Handle wine addition - different logic for new vs existing events
   const handleAddWine = (wineData) => {
     if (editingWineIndex !== null) {
       // Editing existing wine
@@ -119,14 +120,6 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
     setShowWineForm(false);
   };
 
-  // Handle wine added to existing event - refresh the data
-  const handleWineAddedToExistingEvent = () => {
-    // Reload the event data to show the new wine
-    loadEventForEditing();
-    setShowWineForm(false);
-    setEditingWineIndex(null);
-  };
-
   const assignWineToLocation = (wineIndex, locationName) => {
     setEventForm(prev => ({
       ...prev,
@@ -138,16 +131,16 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
     }));
   };
 
-  const removeWineFromEvent = (index) => {
-    setEventForm(prev => ({
-      ...prev,
-      wines: prev.wines.filter((_, i) => i !== index)
-    }));
+  const editWine = (wineIndex) => {
+    setEditingWineIndex(wineIndex);
+    setShowWineForm(true);
   };
 
-  const editWine = (index) => {
-    setEditingWineIndex(index);
-    setShowWineForm(true);
+  const removeWineFromEvent = (wineIndex) => {
+    setEventForm(prev => ({
+      ...prev,
+      wines: prev.wines.filter((_, index) => index !== wineIndex)
+    }));
   };
 
   const saveEvent = async () => {
@@ -156,172 +149,158 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
       return;
     }
 
+    setSaving(true);
+    
     try {
-      let eventData;
-      let eventCode;
-
+      let eventId;
+      
       if (editingEvent) {
         // Update existing event
-        const { data, error: eventError } = await supabase
+        const { error: eventError } = await supabase
           .from('tasting_events')
           .update({
             event_name: eventForm.event_name,
             event_date: eventForm.event_date,
             location: eventForm.location,
-            description: eventForm.description
+            description: eventForm.description,
+            access_type: eventForm.access_type
           })
-          .eq('id', editingEvent.id)
-          .select()
-          .single();
+          .eq('id', editingEvent.id);
 
         if (eventError) throw eventError;
-        eventData = data;
-        eventCode = editingEvent.event_code;
-
-        // Clear existing locations and wines
-        await supabase.from('event_locations').delete().eq('event_id', editingEvent.id);
-        await supabase.from('event_wines').delete().eq('event_id', editingEvent.id);
-
+        eventId = editingEvent.id;
+        
       } else {
         // Create new event
-        const { createEventWithCode } = await import('./supabaseHelpers');
-        const result = await createEventWithCode({
-          admin_id: user.id,
+        const eventData = {
           event_name: eventForm.event_name,
           event_date: eventForm.event_date,
           location: eventForm.location,
-          description: eventForm.description
-        });
+          description: eventForm.description,
+          access_type: eventForm.access_type,
+          admin_id: user.id,  // Add the admin_id
+          is_active: true
+        };
 
-        if (result.error) throw result.error;
-        eventData = result.data;
-        eventCode = result.eventCode;
+        // Generate event code only for event_code access type
+        if (eventForm.access_type === 'event_code') {
+          const { createEventWithCode } = await import('./supabaseHelpers');
+          const { data: newEvent, error: eventError } = await createEventWithCode(eventData);
+          
+          if (eventError) throw eventError;
+          eventId = newEvent.id;
+        } else {
+          // For email_only access type, create without event code
+          const { data: newEvent, error: eventError } = await supabase
+            .from('tasting_events')
+            .insert([eventData])
+            .select()
+            .single();
+            
+          if (eventError) throw eventError;
+          eventId = newEvent.id;
+        }
       }
 
       // Save locations
       if (locations.length > 0) {
-        const locationsForDB = locations.map((location, index) => ({
-          event_id: eventData.id,
+        // Delete existing locations if editing
+        if (editingEvent) {
+          await supabase
+            .from('event_locations')
+            .delete()
+            .eq('event_id', eventId);
+        }
+
+        // Insert new/updated locations
+        const locationsToSave = locations.map(location => ({
+          event_id: eventId,
           location_name: location.location_name,
           location_address: location.location_address,
-          location_notes: location.location_notes || null,
-          location_order: index + 1
+          location_order: location.location_order
         }));
 
         const { error: locationsError } = await supabase
           .from('event_locations')
-          .insert(locationsForDB);
+          .insert(locationsToSave);
 
         if (locationsError) throw locationsError;
       }
 
       // Save wines
       if (eventForm.wines.length > 0) {
-        const winesForDB = eventForm.wines.map((wine, index) => ({
-          event_id: eventData.id,
+        // Delete existing wines if editing
+        if (editingEvent) {
+          await supabase
+            .from('event_wines')
+            .delete()
+            .eq('event_id', eventId);
+        }
+
+        // Insert new/updated wines
+        const winesToSave = eventForm.wines.map(wine => ({
+          event_id: eventId,
           wine_name: wine.wine_name,
-          producer: wine.producer || null,
+          producer: wine.producer,
           vintage: wine.vintage ? parseInt(wine.vintage) : null,
           wine_type: wine.wine_type,
           beverage_type: wine.beverage_type || 'Wine',
-          region: wine.region || null,
-          country: wine.country || null,
+          region: wine.region,
+          country: wine.country,
           price_point: wine.price_point,
           alcohol_content: wine.alcohol_content ? parseFloat(wine.alcohol_content) : null,
-          sommelier_notes: wine.sommelier_notes || null,
-          image_url: wine.image_url || null,
-          grape_varieties: wine.grape_varieties?.length > 0 ? wine.grape_varieties : null,
-          wine_style: wine.wine_style?.length > 0 ? wine.wine_style : null,
-          food_pairings: wine.food_pairings?.length > 0 ? wine.food_pairings : null,
-          tasting_notes: (wine.tasting_notes?.appearance || wine.tasting_notes?.aroma || wine.tasting_notes?.taste || wine.tasting_notes?.finish) ? wine.tasting_notes : null,
-          winemaker_notes: wine.winemaker_notes || null,
-          technical_details: (wine.technical_details?.ph || wine.technical_details?.residual_sugar || wine.technical_details?.total_acidity || wine.technical_details?.aging || wine.technical_details?.production) ? wine.technical_details : null,
-          awards: wine.awards?.length > 0 ? wine.awards : null,
-          location_name: wine.location_name || null,
-          location_order: wine.location_order || 1,
-          tasting_order: index + 1
+          sommelier_notes: wine.sommelier_notes,
+          image_url: wine.image_url,
+          grape_varieties: wine.grape_varieties,
+          wine_style: wine.wine_style,
+          food_pairings: wine.food_pairings,
+          tasting_notes: wine.tasting_notes,
+          winemaker_notes: wine.winemaker_notes,
+          technical_details: wine.technical_details,
+          awards: wine.awards,
+          location_name: wine.location_name,
+          tasting_order: wine.tasting_order || 999
         }));
 
         const { error: winesError } = await supabase
           .from('event_wines')
-          .insert(winesForDB);
+          .insert(winesToSave);
 
         if (winesError) throw winesError;
       }
 
-      const message = editingEvent 
-        ? 'Event updated successfully!' 
-        : `Event created successfully!\nEvent Code: ${eventCode}\n\nShare this code with your attendees.`;
-      
-      alert(message);
-      
-      if (!editingEvent) {
-        setEventForm({ event_name: '', event_date: '', location: '', description: '', wines: [] });
-        setLocations([]);
-      }
-      
-      onEventCreated();
+      alert(`Event ${editingEvent ? 'updated' : 'created'} successfully!`);
+      if (onEventCreated) onEventCreated();
 
     } catch (error) {
       console.error('Error saving event:', error);
       alert('Error saving event: ' + error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
   // Group wines by location for display
-  const organizeWinesByLocation = () => {
-    const unassigned = eventForm.wines.filter(wine => !wine.location_name);
-    const byLocation = locations.map(location => ({
-      ...location,
-      wines: eventForm.wines.filter(wine => wine.location_name === location.location_name)
-    }));
-    return { unassigned, byLocation };
-  };
+  const winesByLocation = locations.map(location => ({
+    ...location,
+    wines: eventForm.wines.filter(wine => wine.location_name === location.location_name)
+  }));
 
-  const { unassigned, byLocation } = organizeWinesByLocation();
+  const unassignedWines = eventForm.wines.filter(wine => !wine.location_name);
 
-  // Show appropriate wine form based on create vs edit mode
   if (showWineForm) {
-    if (editingEvent) {
-      // For EXISTING events, use ExistingEventWineForm which saves directly to database
-      return (
-        <div className="max-w-4xl mx-auto">
-          <ExistingEventWineForm
-            eventId={editingEvent.id}
-            eventName={editingEvent.event_name}
-            onWineAdded={handleWineAddedToExistingEvent}
-            onCancel={() => {
-              setShowWineForm(false);
-              setEditingWineIndex(null);
-            }}
-            initialWine={editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null}
-            isEditing={editingWineIndex !== null}
-          />
-        </div>
-      );
-    } else {
-      // For NEW events, use the regular WineForm (stores in memory)
-      return (
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-4">
-            <button 
-              onClick={() => {
-                setShowWineForm(false);
-                setEditingWineIndex(null);
-              }}
-              className="text-gray-600 hover:text-gray-800"
-            >
-              ← Back to Event
-            </button>
-          </div>
-          <WineForm 
-            onWineAdded={handleAddWine}
-            locations={locations}
-            initialWine={editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null}
-          />
-        </div>
-      );
-    }
+    return (
+      <div className="max-w-4xl mx-auto">
+        <WineForm
+          onAddWine={handleAddWine}
+          onCancel={() => {
+            setShowWineForm(false);
+            setEditingWineIndex(null);
+          }}
+          wineData={editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null}
+        />
+      </div>
+    );
   }
 
   return (
@@ -331,7 +310,7 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
           <h1 className="text-2xl font-bold">
             {editingEvent ? 'Edit Event' : 'Create New Event'}
           </h1>
-          {editingEvent && (
+          {editingEvent && editingEvent.event_code && (
             <p className="text-gray-600">Event Code: {editingEvent.event_code}</p>
           )}
         </div>
@@ -340,31 +319,8 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
         </button>
       </div>
 
-      {/* Show different info based on create vs edit mode */}
-      {editingEvent && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">
-                Editing Existing Event
-              </h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <p>
-                  When you add wines to this existing event, they will be saved immediately to the database and visible to attendees.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Event Details & Locations */}
+        {/* Left Column: Event Details & Access Type */}
         <div className="space-y-6">
           {/* Event Details */}
           <div className="bg-white p-6 rounded-lg border">
@@ -404,75 +360,115 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
             </div>
           </div>
 
-          {/* Wine Crawl Locations */}
+          {/* Access Type Selection */}
           <div className="bg-white p-6 rounded-lg border">
-            <h3 className="font-semibold mb-4 text-green-700">
-              <MapPin className="w-5 h-5 inline mr-2" />
-              Wine Crawl Locations
-            </h3>
-            
-            {/* Add New Location */}
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Location name (e.g., Downtown Wine Bar)"
-                  value={newLocationName}
-                  onChange={(e) => setNewLocationName(e.target.value)}
-                  className="w-full p-3 border rounded focus:ring-2 focus:ring-green-500"
-                />
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="Address (optional)"
-                    value={newLocationAddress}
-                    onChange={(e) => setNewLocationAddress(e.target.value)}
-                    className="flex-1 p-3 border rounded focus:ring-2 focus:ring-green-500"
-                  />
-                  <button
-                    onClick={addLocation}
-                    className="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add
-                  </button>
+            <h3 className="font-semibold mb-4 text-orange-700">Access Type</h3>
+            <div className="space-y-4">
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  eventForm.access_type === 'event_code' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => setEventForm(prev => ({ ...prev, access_type: 'event_code' }))}
+              >
+                <div className="flex items-center gap-3">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="font-medium">Standard Access (Event Code)</div>
+                    <div className="text-sm text-gray-600">
+                      Participants need an event code to join. Best for private events or remote tastings.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  eventForm.access_type === 'email_only' 
+                    ? 'border-green-500 bg-green-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => setEventForm(prev => ({ ...prev, access_type: 'email_only' }))}
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="w-5 h-5 text-green-600" />
+                  <div>
+                    <div className="font-medium">Booth Mode (Email Only)</div>
+                    <div className="text-sm text-gray-600">
+                      Participants only need to enter their email. Perfect for trade shows, retail tastings, or walk-up events.
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Location List */}
-            {locations.length === 0 ? (
-              <div className="text-center py-6 text-gray-500">
-                <MapPin className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No crawl locations added yet</p>
-                <p className="text-sm">Add locations above to organize wines by venue</p>
+            {eventForm.access_type === 'email_only' && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="text-sm text-green-800">
+                  <strong>Booth Mode Features:</strong>
+                  <ul className="mt-1 ml-4 list-disc">
+                    <li>No event code required for users</li>
+                    <li>Quick email-only registration</li>
+                    <li>Perfect for in-person events</li>
+                    <li>All ratings tracked by email address</li>
+                    <li>Use this URL format: <code className="bg-green-100 px-1 rounded">yoursite.com/?boothCode=ABC123</code></li>
+                  </ul>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-3">
+            )}
+          </div>
+
+          {/* Wine Crawl Locations */}
+          <div className="bg-white p-6 rounded-lg border">
+            <h3 className="font-semibold mb-4 text-green-700">
+              <MapPin className="w-5 h-5 inline mr-2" />
+              Wine Crawl Locations (Optional)
+            </h3>
+            
+            {/* Add New Location */}
+            <div className="space-y-3 mb-4">
+              <input
+                type="text"
+                placeholder="Location name (e.g., 'Vineyard A', 'Tasting Room B')"
+                value={newLocationName}
+                onChange={(e) => setNewLocationName(e.target.value)}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              <input
+                type="text"
+                placeholder="Address (optional)"
+                value={newLocationAddress}
+                onChange={(e) => setNewLocationAddress(e.target.value)}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              <button
+                onClick={addLocation}
+                disabled={!newLocationName.trim()}
+                className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Location
+              </button>
+            </div>
+
+            {/* Existing Locations */}
+            {locations.length > 0 && (
+              <div className="space-y-2">
                 {locations.map((location, index) => (
-                  <div key={location.id} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-green-100 text-green-700 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <div className="font-medium">{location.location_name}</div>
-                        {location.location_address && (
-                          <div className="text-sm text-gray-600">{location.location_address}</div>
-                        )}
-                      </div>
+                  <div key={location.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-medium">{location.location_name}</div>
+                      {location.location_address && (
+                        <div className="text-sm text-gray-600">{location.location_address}</div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                        {eventForm.wines.filter(w => w.location_name === location.location_name).length} wines
-                      </span>
-                      <button
-                        onClick={() => removeLocation(index, location.location_name)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => removeLocation(index, location.location_name)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -480,9 +476,8 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
           </div>
         </div>
 
-        {/* Right Column: Wines Management */}
+        {/* Right Column: Wines */}
         <div className="space-y-6">
-          {/* Add Wine Button */}
           <div className="bg-white p-6 rounded-lg border">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-amber-700">
@@ -491,39 +486,44 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
               </h3>
               <button
                 onClick={() => setShowWineForm(true)}
-                className="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 flex items-center gap-2"
+                className="bg-amber-600 text-white py-2 px-4 rounded-lg hover:bg-amber-700 flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                {editingEvent ? 'Add Wine to Event' : 'Add Wine'}
+                Add Wine
               </button>
             </div>
 
             {/* Unassigned Wines */}
-            {unassigned.length > 0 && (
-              <div className="mb-4 p-4 bg-amber-50 rounded border border-amber-200">
-                <h4 className="font-medium text-amber-800 mb-3">Unassigned Wines</h4>
+            {unassignedWines.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-700 mb-2">Unassigned Wines</h4>
                 <div className="space-y-2">
-                  {unassigned.map((wine, wineIndex) => {
+                  {unassignedWines.map((wine) => {
                     const actualIndex = eventForm.wines.indexOf(wine);
                     return (
-                      <div key={actualIndex} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <div key={actualIndex} className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <div>
-                          <div className="font-medium text-sm">{wine.wine_name}</div>
-                          <div className="text-xs text-gray-600">{wine.producer}</div>
+                          <div className="font-medium">{wine.wine_name}</div>
+                          <div className="text-sm text-gray-600">{wine.producer} • {wine.wine_type}</div>
                         </div>
-                        <div className="flex gap-1">
-                          {locations.map(location => (
-                            <button
-                              key={location.id}
-                              onClick={() => assignWineToLocation(actualIndex, location.location_name)}
-                              className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                        <div className="flex gap-2">
+                          {locations.length > 0 && (
+                            <select
+                              onChange={(e) => assignWineToLocation(actualIndex, e.target.value || null)}
+                              className="text-xs border rounded px-2 py-1"
+                              defaultValue=""
                             >
-                              → {location.location_name.substring(0, 8)}...
-                            </button>
-                          ))}
+                              <option value="">Assign to location...</option>
+                              {locations.map(location => (
+                                <option key={location.id} value={location.location_name}>
+                                  {location.location_name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           <button
                             onClick={() => editWine(actualIndex)}
-                            className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
+                            className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
                           >
                             Edit
                           </button>
@@ -542,20 +542,14 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
             )}
 
             {/* Wines by Location */}
-            {byLocation.map(location => (
-              <div key={location.id} className="mb-4 border rounded-lg overflow-hidden">
-                <div className="bg-purple-100 p-3 border-b">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-purple-600" />
-                      <span className="font-medium text-purple-800">{location.location_name}</span>
-                    </div>
-                    <span className="text-sm text-purple-600">
-                      {location.wines.length} wines
-                    </span>
-                  </div>
+            {winesByLocation.map((location) => (
+              <div key={location.id} className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-green-100 p-3 border-b border-gray-200">
+                  <h4 className="font-medium text-green-800">📍 {location.location_name}</h4>
+                  {location.location_address && (
+                    <p className="text-sm text-green-700">{location.location_address}</p>
+                  )}
                 </div>
-                
                 {location.wines.length === 0 ? (
                   <div className="p-4 text-center text-gray-500 text-sm">
                     No wines assigned to this location yet
@@ -610,10 +604,11 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
           {/* Save Button */}
           <button
             onClick={saveEvent}
-            className="w-full bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 font-semibold flex items-center justify-center gap-2"
+            disabled={saving}
+            className="w-full bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 disabled:bg-purple-400 font-semibold flex items-center justify-center gap-2"
           >
             <Save className="w-5 h-5" />
-            {editingEvent ? 'Save Changes' : 'Create Event'}
+            {saving ? 'Saving...' : (editingEvent ? 'Save Changes' : 'Create Event')}
           </button>
         </div>
       </div>

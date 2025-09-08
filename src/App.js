@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AdminDashboard from './AdminDashboard';
-import CreateEventForm from './CreateEventForm';
+import EnhancedCreateEventForm from './EnhancedCreateEventForm'; // Updated import
 import UserInterface from './UserInterface';
 import WineRatingForm from './WineRatingForm';
-import JoinEventForm from './JoinEventForm';
-import AppPreview from './AppPreview'; // Adjust path as needed
+import BoothModeDetector from './BoothModeDetector'; // New import
+import AppPreview from './AppPreview';
 import { supabase } from './supabaseClient';
 
 // Admin Login Component
@@ -47,64 +47,47 @@ const AdminLogin = ({ onAdminLogin }) => {
         return;
       }
 
-      // Success - pass the authenticated admin user
-      onAdminLogin({
-        id: profile.id,
-        email: profile.eventbrite_email || authData.user.email,
-        name: profile.display_name,
-        is_admin: profile.is_admin
-      });
-
+      onAdminLogin(profile);
+      
     } catch (error) {
       console.error('Login error:', error);
-      setError('An unexpected error occurred');
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">⚙️</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Admin Login</h1>
-          <p className="text-purple-200">Access the admin dashboard</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Admin Login</h1>
+          <p className="text-purple-200">Sign in to manage wine events</p>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="admin@example.com"
-              required
-            />
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
+            {error}
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="Enter password"
-              required
-            />
-          </div>
-          
-          {error && (
-            <div className="text-red-300 text-sm text-center bg-red-900/20 p-3 rounded-lg">
-              {error}
-            </div>
-          )}
-          
+        )}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            required
+          />
           <button
             type="submit"
             disabled={loading}
@@ -126,6 +109,7 @@ function App() {
   const [adminUser, setAdminUser] = useState(null);
   const [selectedWine, setSelectedWine] = useState(null);
   const [currentEvent, setCurrentEvent] = useState(null);
+  const [userSession, setUserSession] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showRatingForm, setShowRatingForm] = useState(false);
 
@@ -139,8 +123,10 @@ function App() {
     setShowRatingForm(true);
   };
 
-  const handleEventJoined = (event) => {
+  const handleEventJoined = (event, session) => {
+    console.log('Event joined:', event, 'Session:', session);
     setCurrentEvent(event);
+    setUserSession(session);
   };
 
   const backToAdmin = () => setShowCreateForm(false);
@@ -149,6 +135,8 @@ function App() {
   const backToJoin = () => {
     console.log('backToJoin called - resetting to join form');
     setCurrentEvent(null);
+    setUserSession(null);
+    localStorage.removeItem('wineAppSession');
   };
 
   const handleAdminLogin = (user) => {
@@ -158,9 +146,11 @@ function App() {
   const handleLogout = () => {
     setAdminUser(null);
     setCurrentEvent(null);
+    setUserSession(null);
     setSelectedWine(null);
     setShowCreateForm(false);
     setShowRatingForm(false);
+    localStorage.removeItem('wineAppSession');
   };
 
   // Admin Route Component
@@ -168,7 +158,7 @@ function App() {
     // If admin is logged in and showing create form
     if (showCreateForm) {
       return (
-        <CreateEventForm 
+        <EnhancedCreateEventForm 
           user={adminUser}
           onBack={backToAdmin}
           onEventCreated={backToAdmin}
@@ -194,19 +184,21 @@ function App() {
           wine={selectedWine}
           onBack={backToUser}
           onRatingSaved={backToUser}
+          userSession={userSession}
         />
       );
     }
 
-    // If no current event, show join form
+    // If no current event, show booth mode detector (which handles both modes)
     if (!currentEvent) {
-      return <JoinEventForm onEventJoined={handleEventJoined} />;
+      return <BoothModeDetector onEventJoined={handleEventJoined} />;
     }
 
     // Show user interface for current event
     return (
       <UserInterface
         event={currentEvent}
+        userSession={userSession}
         onRateWine={goToRatingForm}
         onBackToJoin={backToJoin}
       />
