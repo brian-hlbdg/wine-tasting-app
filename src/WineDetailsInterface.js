@@ -266,7 +266,7 @@ const WineDetailsInterface = ({ wine, onBack, onRatingSaved }) => {
               </button>
               <div>
                 <h1 className={`text-lg sm:text-xl font-semibold ${theme.text}`}>
-                  {wine.beverage_type || 'Wine'} #{wine.tasting_order || wine.id}
+                  {wine.beverage_type || 'Wine'} | {wine.wine_name || wine.id}
                 </h1>
                 <div className="flex items-center gap-2">
                   <p className={`text-sm ${theme.textMuted}`}>Tasting Experience</p>

@@ -367,3 +367,159 @@ export const cleanupExpiredTempAccounts = async () => {
   }
 };
 
+// Add to supabaseHelpers.js
+
+/**
+ * Update user login tracking
+ * @param {string} userId - User ID to update
+ * @returns {Object} Supabase response
+ */
+export const updateLoginTracking = async (userId) => {
+  try {
+    // Get user's IP address (optional)
+    let userIP = null;
+    try {
+      const ipResponse = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipResponse.json();
+      userIP = ipData.ip;
+    } catch (error) {
+      console.log('Could not get IP address:', error);
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        last_login: new Date().toISOString(),
+        login_count: supabase.raw('COALESCE(login_count, 0) + 1'),
+        last_login_ip: userIP
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating login tracking:', error);
+      return { data: null, error };
+    }
+
+    return { data, error: null };
+
+  } catch (error) {
+    console.error('Unexpected error in updateLoginTracking:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Soft delete an event
+ * @param {string} eventId - Event ID to delete
+ * @param {string} adminId - Admin ID performing the deletion
+ * @returns {Object} Supabase response
+ */
+export const softDeleteEvent = async (eventId, adminId) => {
+  try {
+    const { data, error } = await supabase
+      .from('tasting_events')
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        deleted_by: adminId,
+        is_active: false
+      })
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return { data, error: null };
+
+  } catch (error) {
+    console.error('Error soft deleting event:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Restore a soft-deleted event
+ * @param {string} eventId - Event ID to restore
+ * @returns {Object} Supabase response
+ */
+export const restoreEvent = async (eventId) => {
+  try {
+    const { data, error } = await supabase
+      .from('tasting_events')
+      .update({
+        is_deleted: false,
+        deleted_at: null,
+        deleted_by: null,
+        is_active: true
+      })
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return { data, error: null };
+
+  } catch (error) {
+    console.error('Error restoring event:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Get admin login statistics
+ * @param {string} adminId - Admin ID
+ * @returns {Object} Login stats
+ */
+export const getAdminLoginStats = async (adminId) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('last_login, login_count, last_login_ip, created_at')
+      .eq('id', adminId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return { data, error: null };
+
+  } catch (error) {
+    console.error('Error getting login stats:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Clean up old deleted events (call this periodically)
+ * returns {Object} Cleanup results
+ */
+export const cleanupOldDeletedEvents = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('tasting_events')
+      .delete()
+      .lt('deleted_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .eq('is_deleted', true);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(`Cleaned up ${data?.length || 0} old deleted events`);
+    return { data, error: null };
+
+  } catch (error) {
+    console.error('Error cleaning up old deleted events:', error);
+    return { data: null, error };
+  }
+};
+
