@@ -309,7 +309,7 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Wine className="w-6 h-6 text-purple-600" />
-            <h1 className="text-xl font-bold">Wine Tasting Admin</h1>
+            <h1 className="text-xl font-bold">Palate Collectif Admin</h1>
           </div>
           <button
             onClick={signOut}

@@ -157,7 +157,21 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
 
   // Event Wines Screen with Location Organization
   const EventWinesScreen = () => {
-    const isWineCrawl = winesByLocation.length > 0;
+    // Determine if this is a wine crawl by checking if there are multiple locations
+    // If there are multiple locations OR wine-location assignments, it's a wine crawl
+    // Otherwise, it's a booth event
+    const hasMultipleLocations = winesByLocation.length > 1;
+    const hasLocationAssignments = winesByLocation.length > 0;
+    
+    // For now, assume if there are no location assignments, it's a booth event
+    const isBoothEvent = !hasLocationAssignments;
+    const isWineCrawl = hasLocationAssignments;
+
+    // Get all wines for booth events (combine location wines + unassigned)
+    const allWines = isBoothEvent ? [
+      ...winesByLocation.flatMap(location => location.wines),
+      ...unassignedWines
+    ] : [];
 
     return (
       <div className="min-h-screen bg-slate-50">
@@ -170,12 +184,15 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                 {currentEvent?.event_date && (
                   <span>{new Date(currentEvent.event_date).toLocaleDateString()}</span>
                 )}
-                {currentEvent?.location && !isWineCrawl && (
+                
+                {/* Show different location info based on event type */}
+                {isBoothEvent && currentEvent?.location && (
                   <div className="flex items-center gap-1">
                     <MapPin className="w-4 h-4" />
                     <span>{currentEvent.location}</span>
                   </div>
                 )}
+                
                 {isWineCrawl && (
                   <div className="flex items-center gap-1">
                     <Navigation className="w-4 h-4" />
@@ -183,15 +200,27 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                   </div>
                 )}
               </div>
+              
+              {/* Show event description for booth events */}
+              {isBoothEvent && currentEvent?.description && (
+                <p className="text-sm text-slate-600 mt-2 max-w-md">
+                  {currentEvent.description}
+                </p>
+              )}
             </div>
+            
             <div className="flex gap-2">
-              <button 
-                onClick={() => setCurrentView('profile')}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
-                title="Your Profile"
-              >
-                <User size={20} className="text-slate-700" />
-              </button>
+              {/* Only show profile button for wine crawls, not booth events */}
+              {isWineCrawl && (
+                <button 
+                  onClick={() => setCurrentView('profile')}
+                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                  title="Your Profile"
+                >
+                  <User size={20} className="text-slate-700" />
+                </button>
+              )}
+              
               {onBackToJoin && (
                 <button 
                   onClick={onBackToJoin}
@@ -208,109 +237,89 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
           {/* Wine Crawl Layout */}
           {isWineCrawl ? (
             <div className="space-y-6">
-              {winesByLocation.map((location, index) => (
-                <div key={location.locationName} className="bg-white rounded-lg border shadow-sm overflow-hidden">
+              {winesByLocation.map((location) => (
+                <div key={location.locationName} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                   {/* Location Header */}
-                  <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4">
+                  <div className="bg-green-600 text-white p-4">
                     <div className="flex items-center gap-3">
-                      <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center font-bold">
-                        {index + 1}
+                      <div className="w-8 h-8 bg-white text-green-600 rounded-full flex items-center justify-center font-bold">
+                        {location.locationOrder}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg">{location.locationName}</h3>
+                        <h2 className="font-bold text-lg">{location.locationName}</h2>
                         {location.locationAddress && (
-                          <p className="text-green-100 text-sm">{location.locationAddress}</p>
+                          <p className="text-green-100">{location.locationAddress}</p>
                         )}
-                        <p className="text-green-200 text-sm">
-                          {location.wines.length} wine{location.wines.length !== 1 ? 's' : ''} to taste
-                        </p>
+                        <p className="text-green-200 text-sm">{location.wines.length} wines to taste</p>
                       </div>
                     </div>
                   </div>
-
+                  
                   {/* Wines at this location */}
-                  <div className="p-4">
-                    {location.wines.length === 0 ? (
-                      <div className="text-center py-6 text-gray-500">
-                        No wines at this location yet
-                      </div>
-                    ) : (
-                      <div className="grid gap-3">
-                        {location.wines.map((wine, wineIndex) => (
-                          <div 
-                            key={wine.id} 
-                            onClick={() => handleWineClick(wine)}
-                            className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all hover:shadow-md"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="bg-green-100 text-green-700 rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium">
-                                  {wineIndex + 1}
-                                </div>
-                                <div>
-                                  <div className="font-medium">{wine.wine_name}</div>
-                                  <div className="text-sm text-gray-600">
-                                    {wine.producer}
-                                    {wine.vintage && ` • ${wine.vintage}`}
-                                    {wine.wine_type && ` • ${wine.wine_type}`}
-                                  </div>
-                                  {wine.price_point && (
-                                    <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                                      {wine.price_point}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-2xl">
-                                  {wine.wine_type === 'sparkling' ? '🥂' : 
-                                   wine.wine_type === 'white' ? '🥂' : 
-                                   wine.wine_type === 'rosé' ? '🌹' : '🍷'}
-                                </div>
-                                <div className="text-xs text-gray-500">Tap to rate</div>
-                              </div>
+                  <div className="divide-y divide-slate-100">
+                    {location.wines.map((wine) => (
+                      <div 
+                        key={wine.id} 
+                        className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => handleWineClick(wine)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-xs font-medium">
+                              {wine.tasting_order || wine.location_order || '•'}
                             </div>
-                            
-                            {wine.sommelier_notes && (
-                              <div className="mt-3 p-3 bg-amber-50 rounded text-sm text-amber-800 border-l-4 border-amber-300">
-                                <strong>Notes:</strong> {wine.sommelier_notes}
-                              </div>
-                            )}
+                            <div>
+                              <h3 className="font-semibold text-slate-900">{wine.wine_name}</h3>
+                              <p className="text-slate-600 text-sm">
+                                {wine.producer} • {wine.vintage} • {wine.wine_type}
+                              </p>
+                              <p className="text-slate-500 text-sm">{wine.price_point}</p>
+                            </div>
                           </div>
-                        ))}
+                          <div className="text-right">
+                            <div className="text-2xl mb-1">
+                              {wine.wine_type === 'sparkling' ? '🥂' : 
+                              wine.wine_type === 'white' ? '🥂' : 
+                              wine.wine_type === 'rosé' ? '🌹' : '🍷'}
+                            </div>
+                            <div className="text-xs text-gray-500">Tap to rate</div>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               ))}
-
-              {/* Unassigned wines (if any) */}
+              
+              {/* Unassigned wines for wine crawl */}
               {unassignedWines.length > 0 && (
-                <div className="bg-gray-50 rounded-lg border p-4">
-                  <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <Wine className="w-5 h-5" />
-                    Additional Wines
-                  </h3>
-                  <div className="grid gap-3">
+                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                  <div className="bg-slate-600 text-white p-4">
+                    <h2 className="font-bold text-lg">Additional Wines</h2>
+                    <p className="text-slate-200 text-sm">{unassignedWines.length} wines</p>
+                  </div>
+                  <div className="divide-y divide-slate-100">
                     {unassignedWines.map((wine) => (
                       <div 
                         key={wine.id} 
+                        className="p-4 hover:bg-slate-50 cursor-pointer transition-colors"
                         onClick={() => handleWineClick(wine)}
-                        className="border rounded-lg p-3 hover:bg-white cursor-pointer transition-colors"
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-medium">{wine.wine_name}</div>
-                            <div className="text-sm text-gray-600">
-                              {wine.producer}
-                              {wine.vintage && ` • ${wine.vintage}`}
-                              {wine.wine_type && ` • ${wine.wine_type}`}
-                            </div>
+                            <h3 className="font-semibold text-slate-900">{wine.wine_name}</h3>
+                            <p className="text-slate-600 text-sm">
+                              {wine.producer} • {wine.vintage} • {wine.wine_type}
+                            </p>
+                            <p className="text-slate-500 text-sm">{wine.price_point}</p>
                           </div>
-                          <div className="text-2xl">
-                            {wine.wine_type === 'sparkling' ? '🥂' : 
-                             wine.wine_type === 'white' ? '🥂' : 
-                             wine.wine_type === 'rosé' ? '🌹' : '🍷'}
+                          <div className="text-right">
+                            <div className="text-2xl mb-1">
+                              {wine.wine_type === 'sparkling' ? '🥂' : 
+                              wine.wine_type === 'white' ? '🥂' : 
+                              wine.wine_type === 'rosé' ? '🌹' : '🍷'}
+                            </div>
+                            <div className="text-xs text-gray-500">Tap to rate</div>
                           </div>
                         </div>
                       </div>
@@ -320,46 +329,48 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
               )}
             </div>
           ) : (
-            /* Regular Single-Location Layout */
+            /* Booth Event Layout - Simple grid, no numbers or order */
             <div>
-              <h2 className="text-lg font-semibold mb-4">Event Wines ({currentEvent?.event_wines?.length || 0})</h2>
+              <h2 className="text-lg font-semibold mb-4 text-slate-900">
+                Available Wines ({allWines.length})
+              </h2>
               
-              {(!currentEvent?.event_wines || currentEvent.event_wines.length === 0) ? (
+              {allWines.length === 0 ? (
                 <div className="text-center py-12">
                   <Wine className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">No Wines Yet</h3>
                   <p className="text-gray-500">The event organizer hasn't added any wines yet.</p>
                 </div>
               ) : (
-                <div className="grid gap-4">
-                  {currentEvent.event_wines.map((wine, index) => (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {allWines.map((wine) => (
                     <div 
                       key={wine.id} 
+                      className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md cursor-pointer transition-all"
                       onClick={() => handleWineClick(wine)}
-                      className="bg-white border rounded-lg p-4 hover:shadow-md cursor-pointer transition-all"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-purple-100 text-purple-700 rounded-full w-8 h-8 flex items-center justify-center font-medium text-sm">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <div className="font-medium">{wine.wine_name}</div>
-                            <div className="text-sm text-gray-600">
-                              {wine.producer}
-                              {wine.vintage && ` • ${wine.vintage}`}
-                              {wine.wine_type && ` • ${wine.wine_type}`}
-                            </div>
-                          </div>
+                      <div className="text-center">
+                        <div className="text-4xl mb-3">
+                          {wine.wine_type === 'sparkling' ? '🥂' : 
+                          wine.wine_type === 'white' ? '🥂' : 
+                          wine.wine_type === 'rosé' ? '🌹' : '🍷'}
                         </div>
-                        <div className="text-right">
-                          <div className="text-2xl">
-                            {wine.wine_type === 'sparkling' ? '🥂' : 
-                             wine.wine_type === 'white' ? '🥂' : 
-                             wine.wine_type === 'rosé' ? '🌹' : '🍷'}
-                          </div>
-                          <div className="text-xs text-gray-500">Tap to rate</div>
-                        </div>
+                        <h3 className="font-semibold text-slate-900 mb-1">{wine.wine_name}</h3>
+                        <p className="text-slate-600 text-sm mb-1">
+                          {wine.producer} {wine.vintage && `• ${wine.vintage}`}
+                        </p>
+                        <p className="text-slate-500 text-sm capitalize">{wine.wine_type}</p>
+                        <p className="text-slate-500 text-xs mt-2">{wine.price_point}</p>
+                        
+                        {/* Show sommelier notes preview for booth events */}
+                        {wine.sommelier_notes && (
+                          <p className="text-slate-600 text-xs mt-2 line-clamp-2">
+                            {wine.sommelier_notes.length > 80 
+                              ? wine.sommelier_notes.substring(0, 80) + '...'
+                              : wine.sommelier_notes
+                            }
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
