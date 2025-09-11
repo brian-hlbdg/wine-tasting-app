@@ -25,9 +25,16 @@ const EnhancedJoinEventForm = ({ onEventJoined, boothCode = null }) => {
     setLoading(true);
     try {
       // Find event by booth code (same as event_code for booth mode)
+      // Include wines and locations data
       const { data: event, error } = await supabase
         .from("tasting_events")
-        .select("*")
+        .select(
+          `
+          *,
+          event_wines (*),
+          event_locations (*)
+        `
+        )
         .eq("event_code", boothCode.toUpperCase())
         .eq("is_booth_mode", true)
         .single();
@@ -166,7 +173,7 @@ const EnhancedJoinEventForm = ({ onEventJoined, boothCode = null }) => {
                 />
               </div>
             ) : (
-              <div className="text-7xl mb-6">{customization.icon}</div>
+              <div className="text-9xl mb-6">{customization.icon}</div>
             )}
 
             <h1 className="text-3xl font-bold text-white mb-2">
