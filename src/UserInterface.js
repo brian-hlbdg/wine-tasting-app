@@ -273,7 +273,7 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                             
                             {wine.sommelier_notes && (
                               <div className="mt-3 p-3 bg-amber-50 rounded text-sm text-amber-800 border-l-4 border-amber-300">
-                                <strong>Notes:</strong> {wine.sommelier_notes}
+                                <strong>Sommelier Notes:</strong> {wine.sommelier_notes}
                               </div>
                             )}
                           </div>
