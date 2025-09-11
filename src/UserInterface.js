@@ -155,13 +155,15 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
     </div>
   );
 
-  // Complete updated EventWinesScreen component with fixed allWines references
-  // This removes the user profile button and updates the header content for booth events
+  // Complete updated EventWinesScreen component with modal for event description
+  // This removes the user profile button and adds a clean modal for full event details
 
   const EventWinesScreen = () => {
     const isWineCrawl = winesByLocation.length > 0;
     // Fix: Use currentEvent.event_wines instead of undefined allWines
     const allWines = currentEvent?.event_wines || [];
+    // Add modal state
+    const [showEventModal, setShowEventModal] = useState(false);
 
     return (
       <div className="min-h-screen bg-slate-50">
@@ -184,10 +186,21 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                   </div>
                 )}
                 
-                {/* For Booth events - show description/tagline instead of location */}
+                {/* For Booth events - show truncated description with modal link */}
                 {!isWineCrawl && currentEvent?.description && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-slate-700 italic">{currentEvent.description}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600">
+                      {currentEvent.description.substring(0, 60)}
+                      {currentEvent.description.length > 60 ? '...' : ''}
+                    </span>
+                    {currentEvent.description.length > 60 && (
+                      <button 
+                        onClick={() => setShowEventModal(true)}
+                        className="text-purple-600 hover:text-purple-800 text-sm font-medium underline"
+                      >
+                        Read more
+                      </button>
+                    )}
                   </div>
                 )}
                 
@@ -214,6 +227,47 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
             </div>
           </div>
         </div>
+
+        {/* Event Description Modal */}
+        {showEventModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{currentEvent?.event_name}</h2>
+                    <p className="text-slate-600 mt-1">
+                      {currentEvent?.event_date && new Date(currentEvent.event_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowEventModal(false)}
+                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="prose prose-slate max-w-none">
+                  <p className="text-slate-700 leading-relaxed">
+                    {currentEvent?.description}
+                  </p>
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowEventModal(false)}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="p-4">
           {/* Wine Crawl Layout */}
