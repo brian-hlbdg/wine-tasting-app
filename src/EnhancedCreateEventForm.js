@@ -1,65 +1,210 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
-import { Trash2, Plus, MapPin, Wine, GripVertical, Save, Shield, Users } from 'lucide-react';
-import WineForm from './WineForm';
+import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "./supabaseClient";
+import {
+  Trash2,
+  Plus,
+  MapPin,
+  Wine,
+  GripVertical,
+  Save,
+  Upload,
+  Palette,
+} from "lucide-react";
+import WineForm from "./WineForm";
 
-const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = null }) => {
+const EnhancedCreateEventForm = ({
+  user,
+  onBack,
+  onEventCreated,
+  editingEvent = null,
+}) => {
   const [eventForm, setEventForm] = useState({
-    event_name: '',
-    event_date: '',
-    location: '',
-    description: '',
-    access_type: 'event_code', // New field for booth mode
-    wines: []
+    event_name: "",
+    event_date: "",
+    location: "", // This becomes the main event location
+    description: "",
+    wines: [],
   });
-  
+
+  // Access Type State
+  const [accessType, setAccessType] = useState("standard"); // 'standard' or 'booth'
+
+  // Booth Mode Customization State
+  const [boothCustomization, setBoothCustomization] = useState({
+    icon: "🍷", // Default wine glass emoji
+    title: "Welcome to our Wine Tasting!",
+    subtitle: "Enter your email to start rating wines",
+    buttonText: "Start Tasting",
+    backgroundColor: "#047857", // Default green
+    textColor: "#ffffff",
+    logoUrl: null, // URL to uploaded logo
+    useCustomLogo: false, // Toggle between icon and logo
+  });
+
+  // Logo upload state
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
   const [locations, setLocations] = useState([]);
-  const [newLocationName, setNewLocationName] = useState('');
-  const [newLocationAddress, setNewLocationAddress] = useState('');
+  const [newLocationName, setNewLocationName] = useState("");
+  const [newLocationAddress, setNewLocationAddress] = useState("");
   const [showWineForm, setShowWineForm] = useState(false);
   const [editingWineIndex, setEditingWineIndex] = useState(null);
-  const [saving, setSaving] = useState(false);
+
+  // Predefined icon options for booth mode
+  const iconOptions = [
+    "🍷",
+    "🍾",
+    "🥂",
+    "🍇",
+    "🍸",
+    "🍹",
+    "🥃",
+    "🧊",
+    "🎭",
+    "🎪",
+    "🎨",
+    "🎵",
+    "⭐",
+    "✨",
+    "🎉",
+    "🌟",
+  ];
+
+  // Handle logo file selection
+  const handleLogoSelect = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image must be smaller than 2MB");
+      return;
+    }
+
+    setLogoFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setLogoPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Upload logo to Supabase Storage
+  const uploadLogo = async () => {
+    if (!logoFile) return null;
+
+    setUploading(true);
+    try {
+      // Generate unique filename
+      const fileExt = logoFile.name.split(".").pop();
+      const fileName = `booth-logos/${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from("event-assets") // You'll need to create this bucket
+        .upload(fileName, logoFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("event-assets").getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading logo:", error);
+      alert("Failed to upload logo: " + error.message);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Remove logo
+  const removeLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setBoothCustomization((prev) => ({
+      ...prev,
+      logoUrl: null,
+      useCustomLogo: false,
+    }));
+  };
 
   // Load existing event data if editing
-  useEffect(() => {
-    if (editingEvent) {
-      loadEventForEditing();
-    }
-  }, [editingEvent]);
+  const loadEventForEditing = useCallback(async () => {
+    if (!editingEvent) return;
 
-  const loadEventForEditing = async () => {
     try {
       // Load event details
       setEventForm({
         event_name: editingEvent.event_name,
         event_date: editingEvent.event_date,
-        location: editingEvent.location || '',
-        description: editingEvent.description || '',
-        access_type: editingEvent.access_type || 'event_code',
-        wines: []
+        location: editingEvent.location || "",
+        description: editingEvent.description || "",
+        wines: [],
       });
 
-      // Load locations for this event
-      const { data: locationsData } = await supabase
-        .from('event_locations')
-        .select('*')
-        .eq('event_id', editingEvent.id)
-        .order('location_order');
+      // Set access type based on event data
+      setAccessType(editingEvent.is_booth_mode ? "booth" : "standard");
+
+      // Load booth customization if it exists
+      if (editingEvent.booth_customization) {
+        setBoothCustomization((prev) => ({
+          ...prev,
+          ...editingEvent.booth_customization,
+        }));
+
+        // Set logo preview if exists
+        if (editingEvent.booth_customization.logoUrl) {
+          setLogoPreview(editingEvent.booth_customization.logoUrl);
+        }
+      }
+
+      // Load locations for this event (only for standard mode)
+      if (!editingEvent.is_booth_mode) {
+        const { data: locationsData } = await supabase
+          .from("event_locations")
+          .select("*")
+          .eq("event_id", editingEvent.id)
+          .order("location_order");
+        setLocations(locationsData || []);
+      }
 
       // Load wines for this event
       const { data: winesData } = await supabase
-        .from('event_wines')
-        .select('*')
-        .eq('event_id', editingEvent.id)
-        .order('location_name, tasting_order');
+        .from("event_wines")
+        .select("*")
+        .eq("event_id", editingEvent.id)
+        .order("location_name, tasting_order");
 
-      setLocations(locationsData || []);
-      setEventForm(prev => ({ ...prev, wines: winesData || [] }));
-
+      setEventForm((prev) => ({ ...prev, wines: winesData || [] }));
     } catch (error) {
-      console.error('Error loading event for editing:', error);
+      console.error("Error loading event for editing:", error);
     }
-  };
+  }, [editingEvent]); // Removed boothCustomization dependency
+
+  useEffect(() => {
+    loadEventForEditing();
+  }, [loadEventForEditing]);
 
   const addLocation = () => {
     if (!newLocationName.trim()) return;
@@ -69,552 +214,889 @@ const EnhancedCreateEventForm = ({ user, onBack, onEventCreated, editingEvent = 
       location_name: newLocationName.trim(),
       location_address: newLocationAddress.trim() || null,
       location_order: locations.length + 1,
-      isNew: true
+      isNew: true,
     };
 
-    setLocations(prev => [...prev, newLocation]);
-    setNewLocationName('');
-    setNewLocationAddress('');
+    setLocations((prev) => [...prev, newLocation]);
+    setNewLocationName("");
+    setNewLocationAddress("");
   };
 
   const removeLocation = (locationIndex, locationName) => {
-    // Check if any wines are assigned to this location
-    const winesAtLocation = eventForm.wines.filter(wine => wine.location_name === locationName);
-    
+    const winesAtLocation = eventForm.wines.filter(
+      (wine) => wine.location_name === locationName
+    );
+
     if (winesAtLocation.length > 0) {
-      if (!window.confirm(`This will unassign ${winesAtLocation.length} wines from "${locationName}". Continue?`)) {
+      if (
+        !window.confirm(
+          `This will unassign ${winesAtLocation.length} wines from "${locationName}". Continue?`
+        )
+      ) {
         return;
       }
-      
-      // Unassign wines from this location
-      setEventForm(prev => ({
+
+      setEventForm((prev) => ({
         ...prev,
-        wines: prev.wines.map(wine => 
-          wine.location_name === locationName 
-            ? { ...wine, location_name: null }
+        wines: prev.wines.map((wine) =>
+          wine.location_name === locationName
+            ? { ...wine, location_name: "" }
             : wine
-        )
+        ),
       }));
     }
 
-    setLocations(prev => prev.filter((_, index) => index !== locationIndex));
+    setLocations((prev) => prev.filter((_, index) => index !== locationIndex));
   };
 
-  const handleAddWine = (wineData) => {
-    if (editingWineIndex !== null) {
-      // Editing existing wine
-      setEventForm(prev => ({
-        ...prev,
-        wines: prev.wines.map((wine, index) => 
-          index === editingWineIndex ? wineData : wine
-        )
-      }));
+  const handleWineAction = (action, wine = null, index = null) => {
+    if (action === "add") {
       setEditingWineIndex(null);
-    } else {
-      // Adding new wine
-      setEventForm(prev => ({
+      setShowWineForm(true);
+    } else if (action === "edit") {
+      setEditingWineIndex(index);
+      setShowWineForm(true);
+    }
+  };
+
+  const handleWineSaved = (wineData) => {
+    if (editingWineIndex !== null) {
+      setEventForm((prev) => ({
         ...prev,
-        wines: [...prev.wines, wineData]
+        wines: prev.wines.map((wine, index) =>
+          index === editingWineIndex ? wineData : wine
+        ),
+      }));
+    } else {
+      setEventForm((prev) => ({
+        ...prev,
+        wines: [...prev.wines, wineData],
       }));
     }
     setShowWineForm(false);
+    setEditingWineIndex(null);
   };
 
-  const assignWineToLocation = (wineIndex, locationName) => {
-    setEventForm(prev => ({
+  const removeWine = (index) => {
+    setEventForm((prev) => ({
       ...prev,
-      wines: prev.wines.map((wine, index) => 
-        index === wineIndex 
-          ? { ...wine, location_name: locationName }
-          : wine
-      )
+      wines: prev.wines.filter((_, i) => i !== index),
     }));
   };
 
-  const editWine = (wineIndex) => {
-    setEditingWineIndex(wineIndex);
-    setShowWineForm(true);
+  const generateEventCode = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let result = "";
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   };
 
-  const removeWineFromEvent = (wineIndex) => {
-    setEventForm(prev => ({
-      ...prev,
-      wines: prev.wines.filter((_, index) => index !== wineIndex)
-    }));
-  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const saveEvent = async () => {
-    if (!eventForm.event_name || !eventForm.event_date) {
-      alert('Please fill in event name and date');
+    if (!eventForm.event_name.trim()) {
+      alert("Please enter an event name");
       return;
     }
 
-    setSaving(true);
-    
     try {
-      let eventId;
-      
-      if (editingEvent) {
-        // Update existing event
-        const { error: eventError } = await supabase
-          .from('tasting_events')
-          .update({
-            event_name: eventForm.event_name,
-            event_date: eventForm.event_date,
-            location: eventForm.location,
-            description: eventForm.description,
-            access_type: eventForm.access_type
-          })
-          .eq('id', editingEvent.id);
+      const eventCode = editingEvent?.event_code || generateEventCode();
 
-        if (eventError) throw eventError;
-        eventId = editingEvent.id;
-        
-      } else {
-        // Create new event
-        const eventData = {
-          event_name: eventForm.event_name,
-          event_date: eventForm.event_date,
-          location: eventForm.location,
-          description: eventForm.description,
-          access_type: eventForm.access_type,
-          admin_id: user.id,
-          is_active: true,
-          // Booth customization fields
-          booth_welcome_message: eventForm.access_type === 'email_only' ? eventForm.booth_welcome_message : null,
-          booth_logo_url: eventForm.access_type === 'email_only' ? eventForm.booth_logo_url || null : null,
-          booth_primary_color: eventForm.access_type === 'email_only' ? eventForm.booth_primary_color : null,
-          booth_background_color: eventForm.access_type === 'email_only' ? eventForm.booth_background_color : null
-        };
-
-        // Generate event code only for event_code access type
-        if (eventForm.access_type === 'event_code') {
-          const { createEventWithCode } = await import('./supabaseHelpers');
-          const { data: newEvent, error: eventError } = await createEventWithCode(eventData);
-          
-          if (eventError) throw eventError;
-          eventId = newEvent.id;
-        } else {
-          // For email_only access type, create without event code
-          const { data: newEvent, error: eventError } = await supabase
-            .from('tasting_events')
-            .insert([eventData])
-            .select()
-            .single();
-            
-          if (eventError) throw eventError;
-          eventId = newEvent.id;
+      // Upload logo if one is selected
+      let logoUrl = boothCustomization.logoUrl;
+      if (logoFile && accessType === "booth") {
+        logoUrl = await uploadLogo();
+        if (!logoUrl) {
+          // Upload failed, but allow user to continue without logo
+          const proceed = window.confirm(
+            "Logo upload failed. Continue saving event without logo?"
+          );
+          if (!proceed) return;
         }
       }
 
-      // Save locations
-      if (locations.length > 0) {
-        // Delete existing locations if editing
+      const eventData = {
+        event_name: eventForm.event_name.trim(),
+        event_date: eventForm.event_date || null,
+        location: eventForm.location.trim() || null,
+        description: eventForm.description.trim() || null,
+        event_code: eventCode,
+        is_active: true,
+        created_by: user.id,
+        is_booth_mode: accessType === "booth",
+        booth_customization:
+          accessType === "booth"
+            ? {
+                ...boothCustomization,
+                logoUrl: logoUrl,
+              }
+            : null,
+      };
+
+      let savedEvent;
+
+      if (editingEvent) {
+        const { data, error } = await supabase
+          .from("tasting_events")
+          .update(eventData)
+          .eq("id", editingEvent.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        savedEvent = data;
+      } else {
+        const { data, error } = await supabase
+          .from("tasting_events")
+          .insert([eventData])
+          .select()
+          .single();
+
+        if (error) throw error;
+        savedEvent = data;
+      }
+
+      // Save locations only for standard mode
+      if (accessType === "standard" && locations.length > 0) {
         if (editingEvent) {
           await supabase
-            .from('event_locations')
+            .from("event_locations")
             .delete()
-            .eq('event_id', eventId);
+            .eq("event_id", editingEvent.id);
         }
 
-        // Insert new/updated locations
-        const locationsToSave = locations.map(location => ({
-          event_id: eventId,
+        const locationsToSave = locations.map((location, index) => ({
+          event_id: savedEvent.id,
           location_name: location.location_name,
           location_address: location.location_address,
-          location_order: location.location_order
+          location_order: index + 1,
         }));
 
-        const { error: locationsError } = await supabase
-          .from('event_locations')
+        const { error: locationError } = await supabase
+          .from("event_locations")
           .insert(locationsToSave);
 
-        if (locationsError) throw locationsError;
+        if (locationError) throw locationError;
       }
 
       // Save wines
       if (eventForm.wines.length > 0) {
-        // Delete existing wines if editing
         if (editingEvent) {
           await supabase
-            .from('event_wines')
+            .from("event_wines")
             .delete()
-            .eq('event_id', eventId);
+            .eq("event_id", editingEvent.id);
         }
 
-        // Insert new/updated wines
-        const winesToSave = eventForm.wines.map(wine => ({
-          event_id: eventId,
-          wine_name: wine.wine_name,
-          producer: wine.producer,
-          vintage: wine.vintage ? parseInt(wine.vintage) : null,
-          wine_type: wine.wine_type,
-          beverage_type: wine.beverage_type || 'Wine',
-          region: wine.region,
-          country: wine.country,
-          price_point: wine.price_point,
-          alcohol_content: wine.alcohol_content ? parseFloat(wine.alcohol_content) : null,
-          sommelier_notes: wine.sommelier_notes,
-          image_url: wine.image_url,
-          grape_varieties: wine.grape_varieties,
-          wine_style: wine.wine_style,
-          food_pairings: wine.food_pairings,
-          tasting_notes: wine.tasting_notes,
-          winemaker_notes: wine.winemaker_notes,
-          technical_details: wine.technical_details,
-          awards: wine.awards,
-          location_name: wine.location_name,
-          tasting_order: wine.tasting_order || 999
+        const winesToSave = eventForm.wines.map((wine, index) => ({
+          ...wine,
+          event_id: savedEvent.id,
+          tasting_order: index + 1,
+          location_name: accessType === "booth" ? null : wine.location_name,
         }));
 
-        const { error: winesError } = await supabase
-          .from('event_wines')
+        const { error: wineError } = await supabase
+          .from("event_wines")
           .insert(winesToSave);
 
-        if (winesError) throw winesError;
+        if (wineError) throw wineError;
       }
 
-      alert(`Event ${editingEvent ? 'updated' : 'created'} successfully!`);
-      if (onEventCreated) onEventCreated();
-
+      if (onEventCreated) {
+        onEventCreated(savedEvent);
+      }
     } catch (error) {
-      console.error('Error saving event:', error);
-      alert('Error saving event: ' + error.message);
-    } finally {
-      setSaving(false);
+      console.error("Error saving event:", error);
+      alert("Error saving event: " + error.message);
     }
   };
 
-  // Group wines by location for display
-  const winesByLocation = locations.map(location => ({
-    ...location,
-    wines: eventForm.wines.filter(wine => wine.location_name === location.location_name)
-  }));
-
-  const unassignedWines = eventForm.wines.filter(wine => !wine.location_name);
-
   if (showWineForm) {
+    const locationOptions =
+      accessType === "standard"
+        ? locations.map((loc) => loc.location_name)
+        : [];
+
     return (
-      <div className="max-w-4xl mx-auto">
-        <WineForm
-          onAddWine={handleAddWine}
-          onCancel={() => {
-            setShowWineForm(false);
-            setEditingWineIndex(null);
-          }}
-          wineData={editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null}
-        />
-      </div>
+      <WineForm
+        onSave={handleWineSaved}
+        onCancel={() => setShowWineForm(false)}
+        existingWine={
+          editingWineIndex !== null ? eventForm.wines[editingWineIndex] : null
+        }
+        locationOptions={locationOptions}
+      />
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {editingEvent ? 'Edit Event' : 'Create New Event'}
-          </h1>
-          {editingEvent && editingEvent.event_code && (
-            <p className="text-gray-600">Event Code: {editingEvent.event_code}</p>
-          )}
-        </div>
-        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
-          ← Back to Events
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Event Details & Access Type */}
-        <div className="space-y-6">
-          {/* Event Details */}
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="font-semibold mb-4 text-purple-700">Event Details</h3>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Event name"
-                value={eventForm.event_name}
-                onChange={(e) => setEventForm(prev => ({ ...prev, event_name: e.target.value }))}
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-              />
-              
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="date"
-                  value={eventForm.event_date}
-                  onChange={(e) => setEventForm(prev => ({ ...prev, event_date: e.target.value }))}
-                  className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Main location/venue"
-                  value={eventForm.location}
-                  onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
-                  className="p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-              
-              <textarea
-                placeholder="Event description"
-                value={eventForm.description}
-                onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
-                rows="3"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {editingEvent ? "Edit Event" : "Create New Event"}
+            </h1>
+            <button
+              onClick={onBack}
+              className="text-gray-600 hover:text-gray-800"
+            >
+              ← Back to Dashboard
+            </button>
           </div>
 
-          {/* Access Type Selection */}
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="font-semibold mb-4 text-orange-700">Access Type</h3>
-            <div className="space-y-4">
-              <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  eventForm.access_type === 'event_code' 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => setEventForm(prev => ({ ...prev, access_type: 'event_code' }))}
-              >
-                <div className="flex items-center gap-3">
-                  <Shield className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <div className="font-medium">Standard Access (Event Code)</div>
-                    <div className="text-sm text-gray-600">
-                      Participants need an event code to join. Best for private events or remote tastings.
-                    </div>
-                  </div>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Basic Event Information */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <h2 className="text-lg font-semibold mb-4">Event Details</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Event Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={eventForm.event_name}
+                    onChange={(e) =>
+                      setEventForm((prev) => ({
+                        ...prev,
+                        event_name: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g., Summer Wine Tasting"
+                  />
                 </div>
-              </div>
 
-              <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  eventForm.access_type === 'email_only' 
-                    ? 'border-green-500 bg-green-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => setEventForm(prev => ({ ...prev, access_type: 'email_only' }))}
-              >
-                <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-green-600" />
-                  <div>
-                    <div className="font-medium">Booth Mode (Email Only)</div>
-                    <div className="text-sm text-gray-600">
-                      Participants only need to enter their email. Perfect for trade shows, retail tastings, or walk-up events.
-                    </div>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Event Date
+                  </label>
+                  <input
+                    type="date"
+                    value={eventForm.event_date}
+                    onChange={(e) =>
+                      setEventForm((prev) => ({
+                        ...prev,
+                        event_date: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Main Location
+                  </label>
+                  <input
+                    type="text"
+                    value={eventForm.location}
+                    onChange={(e) =>
+                      setEventForm((prev) => ({
+                        ...prev,
+                        location: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g., Downtown Convention Center"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={eventForm.description}
+                    onChange={(e) =>
+                      setEventForm((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Brief description of your event..."
+                  />
                 </div>
               </div>
             </div>
 
-            {eventForm.access_type === 'email_only' && (
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <div className="text-sm text-green-800">
-                  <strong>Booth Mode Features:</strong>
-                  <ul className="mt-1 ml-4 list-disc">
-                    <li>No event code required for users</li>
-                    <li>Quick email-only registration</li>
-                    <li>Perfect for in-person events</li>
-                    <li>All ratings tracked by email address</li>
-                    <li>Use this URL format: <code className="bg-green-100 px-1 rounded">yoursite.com/?boothCode=ABC123</code></li>
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
+            {/* Access Type Selection */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <h2 className="text-lg font-semibold mb-4 text-red-600">
+                Access Type
+              </h2>
 
-          {/* Wine Crawl Locations */}
-          <div className="bg-white p-6 rounded-lg border">
-            <h3 className="font-semibold mb-4 text-green-700">
-              <MapPin className="w-5 h-5 inline mr-2" />
-              Wine Crawl Locations (Optional)
-            </h3>
-            
-            {/* Add New Location */}
-            <div className="space-y-3 mb-4">
-              <input
-                type="text"
-                placeholder="Location name (e.g., 'Vineyard A', 'Tasting Room B')"
-                value={newLocationName}
-                onChange={(e) => setNewLocationName(e.target.value)}
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                type="text"
-                placeholder="Address (optional)"
-                value={newLocationAddress}
-                onChange={(e) => setNewLocationAddress(e.target.value)}
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              <button
-                onClick={addLocation}
-                disabled={!newLocationName.trim()}
-                className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Location
-              </button>
-            </div>
-
-            {/* Existing Locations */}
-            {locations.length > 0 && (
-              <div className="space-y-2">
-                {locations.map((location, index) => (
-                  <div key={location.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="font-medium">{location.location_name}</div>
-                      {location.location_address && (
-                        <div className="text-sm text-gray-600">{location.location_address}</div>
+              <div className="space-y-4">
+                {/* Standard Access Option */}
+                <div
+                  className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                    accessType === "standard"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                  onClick={() => setAccessType("standard")}
+                >
+                  <div className="flex items-center mb-2">
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 mr-3 ${
+                        accessType === "standard"
+                          ? "border-blue-500 bg-blue-500"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {accessType === "standard" && (
+                        <div className="w-full h-full rounded-full bg-white scale-50"></div>
                       )}
                     </div>
-                    <button
-                      onClick={() => removeLocation(index, location.location_name)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <h3 className="text-lg font-semibold">
+                      Standard Access (Event Code)
+                    </h3>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Wines */}
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-lg border">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-amber-700">
-                <Wine className="w-5 h-5 inline mr-2" />
-                Event Wines ({eventForm.wines.length})
-              </h3>
-              <button
-                onClick={() => setShowWineForm(true)}
-                className="bg-amber-600 text-white py-2 px-4 rounded-lg hover:bg-amber-700 flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Wine
-              </button>
-            </div>
-
-            {/* Unassigned Wines */}
-            {unassignedWines.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">Unassigned Wines</h4>
-                <div className="space-y-2">
-                  {unassignedWines.map((wine) => {
-                    const actualIndex = eventForm.wines.indexOf(wine);
-                    return (
-                      <div key={actualIndex} className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div>
-                          <div className="font-medium">{wine.wine_name}</div>
-                          <div className="text-sm text-gray-600">{wine.producer} • {wine.wine_type}</div>
-                        </div>
-                        <div className="flex gap-2">
-                          {locations.length > 0 && (
-                            <select
-                              onChange={(e) => assignWineToLocation(actualIndex, e.target.value || null)}
-                              className="text-xs border rounded px-2 py-1"
-                              defaultValue=""
-                            >
-                              <option value="">Assign to location...</option>
-                              {locations.map(location => (
-                                <option key={location.id} value={location.location_name}>
-                                  {location.location_name}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                          <button
-                            onClick={() => editWine(actualIndex)}
-                            className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => removeWineFromEvent(actualIndex)}
-                            className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <p className="text-gray-600 ml-7">
+                    Participants need an event code to join. Best for private
+                    events or remote tastings.
+                  </p>
                 </div>
-              </div>
-            )}
 
-            {/* Wines by Location */}
-            {winesByLocation.map((location) => (
-              <div key={location.id} className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-green-100 p-3 border-b border-gray-200">
-                  <h4 className="font-medium text-green-800">📍 {location.location_name}</h4>
-                  {location.location_address && (
-                    <p className="text-sm text-green-700">{location.location_address}</p>
+                {/* Booth Mode Option */}
+                <div
+                  className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                    accessType === "booth"
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                  onClick={() => setAccessType("booth")}
+                >
+                  <div className="flex items-center mb-2">
+                    <div
+                      className={`w-4 h-4 rounded-full border-2 mr-3 ${
+                        accessType === "booth"
+                          ? "border-green-500 bg-green-500"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {accessType === "booth" && (
+                        <div className="w-full h-full rounded-full bg-white scale-50"></div>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-semibold">
+                      Booth Mode (Email Only)
+                    </h3>
+                  </div>
+                  <p className="text-gray-600 ml-7">
+                    Participants only need to enter their email. Perfect for
+                    trade shows, retail tastings, or walk-up events.
+                  </p>
+
+                  {accessType === "booth" && (
+                    <div className="mt-4 ml-7 p-4 bg-green-100 rounded-lg">
+                      <h4 className="font-semibold text-green-800 mb-2">
+                        Booth Mode Features:
+                      </h4>
+                      <ul className="text-sm text-green-700 space-y-1">
+                        <li>• No event code required for users</li>
+                        <li>• Quick email-only registration</li>
+                        <li>• Perfect for in-person events</li>
+                        <li>• All ratings tracked by email address</li>
+                        <li>
+                          • Use this URL format:{" "}
+                          <code className="bg-green-200 px-1 rounded">
+                            yoursite.com/?boothCode=ABC123
+                          </code>
+                        </li>
+                      </ul>
+                    </div>
                   )}
                 </div>
-                {location.wines.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500 text-sm">
-                    No wines assigned to this location yet
-                  </div>
-                ) : (
-                  <div className="p-3 space-y-2">
-                    {location.wines.map((wine) => {
-                      const actualIndex = eventForm.wines.indexOf(wine);
-                      return (
-                        <div key={actualIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                          <div>
-                            <div className="font-medium text-sm">{wine.wine_name}</div>
-                            <div className="text-xs text-gray-600">{wine.producer} • {wine.wine_type}</div>
+              </div>
+            </div>
+
+            {/* Booth Customization - Only show when booth mode is selected */}
+            {accessType === "booth" && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-lg border border-green-200">
+                <h2 className="text-lg font-semibold mb-4 text-green-800 flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Booth Screen Customization
+                </h2>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Customization Controls */}
+                  <div className="space-y-4">
+                    {/* Logo vs Icon Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Booth Display
+                      </label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="displayType"
+                            checked={!boothCustomization.useCustomLogo}
+                            onChange={() =>
+                              setBoothCustomization((prev) => ({
+                                ...prev,
+                                useCustomLogo: false,
+                              }))
+                            }
+                            className="mr-2"
+                          />
+                          Use Icon
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="displayType"
+                            checked={boothCustomization.useCustomLogo}
+                            onChange={() =>
+                              setBoothCustomization((prev) => ({
+                                ...prev,
+                                useCustomLogo: true,
+                              }))
+                            }
+                            className="mr-2"
+                          />
+                          Use Custom Logo
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Icon Selection - Only show if not using custom logo */}
+                    {!boothCustomization.useCustomLogo && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Booth Icon
+                        </label>
+                        <div className="grid grid-cols-8 gap-2">
+                          {iconOptions.map((icon) => (
+                            <button
+                              key={icon}
+                              type="button"
+                              onClick={() =>
+                                setBoothCustomization((prev) => ({
+                                  ...prev,
+                                  icon,
+                                }))
+                              }
+                              className={`w-12 h-12 text-2xl border-2 rounded-lg hover:bg-gray-50 transition-all ${
+                                boothCustomization.icon === icon
+                                  ? "border-green-500 bg-green-50"
+                                  : "border-gray-200"
+                              }`}
+                            >
+                              {icon}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Logo Upload - Only show if using custom logo */}
+                    {boothCustomization.useCustomLogo && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Custom Logo
+                        </label>
+
+                        {!logoPreview ? (
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600 mb-2">
+                              Upload your logo (PNG, JPG, SVG)
+                            </p>
+                            <p className="text-xs text-gray-500 mb-4">
+                              Max size: 2MB • Recommended: 200x200px
+                            </p>
+                            <label className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 cursor-pointer">
+                              <Upload className="w-4 h-4" />
+                              Choose File
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleLogoSelect}
+                                className="hidden"
+                              />
+                            </label>
                           </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => editWine(actualIndex)}
-                              className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => assignWineToLocation(actualIndex, null)}
-                              className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
-                            >
-                              Unassign
-                            </button>
-                            <button
-                              onClick={() => removeWineFromEvent(actualIndex)}
-                              className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
-                            >
-                              Remove
-                            </button>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                              <img
+                                src={logoPreview}
+                                alt="Logo preview"
+                                className="w-16 h-16 object-contain bg-white rounded border"
+                              />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-700">
+                                  {logoFile?.name || "Existing logo"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {logoFile
+                                    ? `${(logoFile.size / 1024).toFixed(1)} KB`
+                                    : "Previously uploaded"}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={removeLogo}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {logoFile && (
+                              <label className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer text-sm">
+                                <Upload className="w-4 h-4" />
+                                Change File
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleLogoSelect}
+                                  className="hidden"
+                                />
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Title
+                      </label>
+                      <input
+                        type="text"
+                        value={boothCustomization.title}
+                        onChange={(e) =>
+                          setBoothCustomization((prev) => ({
+                            ...prev,
+                            title: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Subtitle
+                      </label>
+                      <input
+                        type="text"
+                        value={boothCustomization.subtitle}
+                        onChange={(e) =>
+                          setBoothCustomization((prev) => ({
+                            ...prev,
+                            subtitle: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Button Text
+                      </label>
+                      <input
+                        type="text"
+                        value={boothCustomization.buttonText}
+                        onChange={(e) =>
+                          setBoothCustomization((prev) => ({
+                            ...prev,
+                            buttonText: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Background Color
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={boothCustomization.backgroundColor}
+                          onChange={(e) =>
+                            setBoothCustomization((prev) => ({
+                              ...prev,
+                              backgroundColor: e.target.value,
+                            }))
+                          }
+                          className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={boothCustomization.backgroundColor}
+                          onChange={(e) =>
+                            setBoothCustomization((prev) => ({
+                              ...prev,
+                              backgroundColor: e.target.value,
+                            }))
+                          }
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Preview */}
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">
+                      Live Preview
+                    </h3>
+                    <div
+                      className="rounded-lg p-6 text-center text-white relative overflow-hidden"
+                      style={{
+                        backgroundColor: boothCustomization.backgroundColor,
+                      }}
+                    >
+                      {/* Display Icon or Logo */}
+                      {boothCustomization.useCustomLogo && logoPreview ? (
+                        <div className="mb-4">
+                          <img
+                            src={logoPreview}
+                            alt="Booth logo"
+                            className="w-16 h-16 mx-auto object-contain bg-white/10 rounded-lg p-2"
+                          />
+                        </div>
+                      ) : (
+                        <div className="text-6xl mb-4">
+                          {boothCustomization.icon}
+                        </div>
+                      )}
+
+                      <h1 className="text-xl font-bold mb-2">
+                        {boothCustomization.title}
+                      </h1>
+                      <p className="text-sm opacity-90 mb-6">
+                        {boothCustomization.subtitle}
+                      </p>
+
+                      <div className="mb-4">
+                        <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-3 text-left">
+                          <div className="text-xs opacity-75 mb-1">
+                            📧 Email Address
+                          </div>
+                          <div className="text-sm opacity-60">
+                            your.email@example.com
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                      </div>
 
-            {eventForm.wines.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Wine className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No wines added yet</p>
-                <p className="text-sm">Click "Add Wine" to get started</p>
+                      <button
+                        className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all"
+                        style={{ color: boothCustomization.textColor }}
+                        disabled={uploading}
+                      >
+                        {uploading
+                          ? "Uploading..."
+                          : `${boothCustomization.buttonText} →`}
+                      </button>
+
+                      <div className="mt-4 text-xs opacity-75">
+                        Your ratings and notes will be saved to your email
+                        address
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Save Button */}
-          <button
-            onClick={saveEvent}
-            disabled={saving}
-            className="w-full bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 disabled:bg-purple-400 font-semibold flex items-center justify-center gap-2"
-          >
-            <Save className="w-5 h-5" />
-            {saving ? 'Saving...' : (editingEvent ? 'Save Changes' : 'Create Event')}
-          </button>
+            {/* Wine Crawl Locations - Only show for standard mode */}
+            {accessType === "standard" && (
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <MapPin className="w-5 h-5 text-green-600" />
+                  <h2 className="text-lg font-semibold text-green-600">
+                    Wine Crawl Locations (Optional)
+                  </h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      value={newLocationName}
+                      onChange={(e) => setNewLocationName(e.target.value)}
+                      placeholder="Location name (e.g., 'Vineyard A', 'Tasting Room B')"
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                    <input
+                      type="text"
+                      value={newLocationAddress}
+                      onChange={(e) => setNewLocationAddress(e.target.value)}
+                      placeholder="Address (optional)"
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addLocation}
+                    disabled={!newLocationName.trim()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Location
+                  </button>
+
+                  {locations.length > 0 && (
+                    <div className="space-y-2">
+                      {locations.map((location, index) => (
+                        <div
+                          key={location.id || index}
+                          className="flex items-center gap-3 p-3 bg-white rounded border"
+                        >
+                          <GripVertical className="w-4 h-4 text-gray-400" />
+                          <div className="flex-1">
+                            <div className="font-medium">
+                              {location.location_name}
+                            </div>
+                            {location.location_address && (
+                              <div className="text-sm text-gray-500">
+                                {location.location_address}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeLocation(index, location.location_name)
+                            }
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Wines Section */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Wine className="w-5 h-5 text-purple-600" />
+                  <h2 className="text-lg font-semibold">
+                    Wines ({eventForm.wines.length})
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleWineAction("add")}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Wine
+                </button>
+              </div>
+
+              {eventForm.wines.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Wine className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No wines added yet. Click "Add Wine" to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {eventForm.wines.map((wine, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-4 bg-white rounded border"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{wine.name}</span>
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                            {wine.wine_type}
+                          </span>
+                          {wine.vintage && (
+                            <span className="text-sm text-gray-500">
+                              {wine.vintage}
+                            </span>
+                          )}
+                        </div>
+                        {wine.producer && (
+                          <div className="text-sm text-gray-600">
+                            {wine.producer}
+                          </div>
+                        )}
+                        {wine.region && (
+                          <div className="text-sm text-gray-500">
+                            {wine.region}
+                          </div>
+                        )}
+                        {accessType === "standard" && wine.location_name && (
+                          <div className="text-xs text-green-600 mt-1">
+                            📍 {wine.location_name}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleWineAction("edit", wine, index)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                        >
+                          <GripVertical className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeWine(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onBack}
+                className="px-6 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+
+              <div className="flex items-center gap-3">
+                {editingEvent && (
+                  <div className="text-sm text-gray-500">
+                    Event Code:{" "}
+                    <span className="font-mono font-semibold">
+                      {editingEvent.event_code}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                >
+                  <Save className="w-4 h-4" />
+                  {editingEvent ? "Update Event" : "Create Event"}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
