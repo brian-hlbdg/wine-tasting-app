@@ -155,43 +155,67 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
     </div>
   );
 
-  // Event Wines Screen with Location Organization
+  // Complete updated EventWinesScreen component with modal for event description
+  // This removes the user profile button and adds a clean modal for full event details
+
   const EventWinesScreen = () => {
     const isWineCrawl = winesByLocation.length > 0;
+    // Fix: Use currentEvent.event_wines instead of undefined allWines
+    const allWines = currentEvent?.event_wines || [];
+    // Add modal state
+    const [showEventModal, setShowEventModal] = useState(false);
 
     return (
       <div className="min-h-screen bg-slate-50">
-        {/* Header */}
+        {/* Updated Header */}
         <div className="bg-white border-b border-slate-200 p-5 sticky top-0 z-10">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h1 className="text-xl font-bold text-slate-900">{currentEvent?.event_name}</h1>
               <div className="flex items-center gap-4 text-sm text-slate-600 mt-1">
+                {/* Always show the date */}
                 {currentEvent?.event_date && (
                   <span>{new Date(currentEvent.event_date).toLocaleDateString()}</span>
                 )}
-                {currentEvent?.location && !isWineCrawl && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    <span>{currentEvent.location}</span>
-                  </div>
-                )}
+                
+                {/* For Wine Crawl events - show navigation info */}
                 {isWineCrawl && (
                   <div className="flex items-center gap-1">
                     <Navigation className="w-4 h-4" />
                     <span>Wine Crawl • {winesByLocation.length} stops</span>
                   </div>
                 )}
+                
+                {/* For Booth events - show truncated description with modal link */}
+                {!isWineCrawl && currentEvent?.description && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600">
+                      {currentEvent.description.substring(0, 60)}
+                      {currentEvent.description.length > 60 ? '...' : ''}
+                    </span>
+                    {currentEvent.description.length > 60 && (
+                      <button 
+                        onClick={() => setShowEventModal(true)}
+                        className="text-purple-600 hover:text-purple-800 text-sm font-medium underline"
+                      >
+                        Read more
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {/* Fallback: show location only if no description and not a wine crawl */}
+                {!isWineCrawl && !currentEvent?.description && currentEvent?.location && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    <span>{currentEvent.location}</span>
+                  </div>
+                )}
               </div>
             </div>
+            
+            {/* Right side - only Leave Event button, no user profile button */}
             <div className="flex gap-2">
-              <button 
-                onClick={() => setCurrentView('profile')}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
-                title="Your Profile"
-              >
-                <User size={20} className="text-slate-700" />
-              </button>
               {onBackToJoin && (
                 <button 
                   onClick={onBackToJoin}
@@ -204,27 +228,70 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
           </div>
         </div>
 
+        {/* Event Description Modal */}
+        {showEventModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{currentEvent?.event_name}</h2>
+                    <p className="text-slate-600 mt-1">
+                      {currentEvent?.event_date && new Date(currentEvent.event_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowEventModal(false)}
+                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="prose prose-slate max-w-none">
+                  <p className="text-slate-700 leading-relaxed">
+                    {currentEvent?.description}
+                  </p>
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowEventModal(false)}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="p-4">
           {/* Wine Crawl Layout */}
           {isWineCrawl ? (
-            <div className="space-y-6">
-              {winesByLocation.map((location, index) => (
-                <div key={location.locationName} className="bg-white rounded-lg border shadow-sm overflow-hidden">
+            <div>
+              {winesByLocation.map((location, locationIndex) => (
+                <div key={location.locationName} className="mb-8 bg-white rounded-lg shadow-sm border">
                   {/* Location Header */}
-                  <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4">
+                  <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 rounded-t-lg">
                     <div className="flex items-center gap-3">
                       <div className="bg-white/20 rounded-full w-8 h-8 flex items-center justify-center font-bold">
-                        {index + 1}
+                        {locationIndex + 1}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-lg">{location.locationName}</h3>
+                        <h3 className="font-bold text-lg">{location.locationName}</h3>
                         {location.locationAddress && (
                           <p className="text-green-100 text-sm">{location.locationAddress}</p>
                         )}
-                        <p className="text-green-200 text-sm">
-                          {location.wines.length} wine{location.wines.length !== 1 ? 's' : ''} to taste
-                        </p>
                       </div>
+                    </div>
+                    <div className="mt-2 text-green-100 text-sm">
+                      <p>
+                        {location.wines.length} wine{location.wines.length !== 1 ? 's' : ''} to taste
+                      </p>
                     </div>
                   </div>
 
@@ -264,8 +331,8 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                               <div className="text-right">
                                 <div className="text-2xl">
                                   {wine.wine_type === 'sparkling' ? '🥂' : 
-                                   wine.wine_type === 'white' ? '🥂' : 
-                                   wine.wine_type === 'rosé' ? '🌹' : '🍷'}
+                                  wine.wine_type === 'white' ? '🥂' : 
+                                  wine.wine_type === 'rosé' ? '🌹' : '🍷'}
                                 </div>
                                 <div className="text-xs text-gray-500">Tap to rate</div>
                               </div>
@@ -309,8 +376,8 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                           </div>
                           <div className="text-2xl">
                             {wine.wine_type === 'sparkling' ? '🥂' : 
-                             wine.wine_type === 'white' ? '🥂' : 
-                             wine.wine_type === 'rosé' ? '🌹' : '🍷'}
+                            wine.wine_type === 'white' ? '🥂' : 
+                            wine.wine_type === 'rosé' ? '🌹' : '🍷'}
                           </div>
                         </div>
                       </div>
@@ -320,11 +387,11 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
               )}
             </div>
           ) : (
-            /* Regular Single-Location Layout */
+            /* Regular Single-Location Layout (Booth Events) */
             <div>
-              <h2 className="text-lg font-semibold mb-4">Event Wines ({currentEvent?.event_wines?.length || 0})</h2>
+              <h2 className="text-lg font-semibold mb-4">Event Wines ({allWines.length})</h2>
               
-              {(!currentEvent?.event_wines || currentEvent.event_wines.length === 0) ? (
+              {allWines.length === 0 ? (
                 <div className="text-center py-12">
                   <Wine className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">No Wines Yet</h3>
@@ -332,7 +399,7 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {currentEvent.event_wines.map((wine, index) => (
+                  {allWines.map((wine, index) => (
                     <div 
                       key={wine.id} 
                       onClick={() => handleWineClick(wine)}
@@ -355,12 +422,18 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
                         <div className="text-right">
                           <div className="text-2xl">
                             {wine.wine_type === 'sparkling' ? '🥂' : 
-                             wine.wine_type === 'white' ? '🥂' : 
-                             wine.wine_type === 'rosé' ? '🌹' : '🍷'}
+                            wine.wine_type === 'white' ? '🥂' : 
+                            wine.wine_type === 'rosé' ? '🌹' : '🍷'}
                           </div>
                           <div className="text-xs text-gray-500">Tap to rate</div>
                         </div>
                       </div>
+
+                      {wine.sommelier_notes && (
+                        <div className="mt-3 p-3 bg-amber-50 rounded text-sm text-amber-800 border-l-4 border-amber-300">
+                          <strong>Notes:</strong> {wine.sommelier_notes}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
