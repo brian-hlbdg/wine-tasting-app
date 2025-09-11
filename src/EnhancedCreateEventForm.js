@@ -711,7 +711,7 @@ const EnhancedCreateEventForm = ({
                               Upload your logo (PNG, JPG, SVG)
                             </p>
                             <p className="text-xs text-gray-500 mb-4">
-                              Max size: 2MB • Recommended: 200x200px
+                              Max size: 2MB • Recommended: 400x400px
                             </p>
                             <label className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 cursor-pointer">
                               <Upload className="w-4 h-4" />

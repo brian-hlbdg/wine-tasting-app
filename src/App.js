@@ -1,32 +1,39 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import AdminDashboard from './AdminDashboard';
-import EnhancedCreateEventForm from './EnhancedCreateEventForm'; // Updated import
-import UserInterface from './UserInterface';
-import WineRatingForm from './WineRatingForm';
-import BoothModeDetector from './BoothModeDetector'; // New import
-import AppPreview from './AppPreview';
-import { supabase } from './supabaseClient';
+import React, { useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useSearchParams,
+} from "react-router-dom";
+import AdminDashboard from "./AdminDashboard";
+import EnhancedCreateEventForm from "./EnhancedCreateEventForm"; // Updated import
+import UserInterface from "./UserInterface";
+import WineRatingForm from "./WineRatingForm";
+import EnhancedJoinEventForm from "./EnhancedJoinEventForm"; // New import
+import AppPreview from "./AppPreview";
+import { supabase } from "./supabaseClient";
 
 // Admin Login Component
 const AdminLogin = ({ onAdminLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
       // Use Supabase authentication
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
-      
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email: email,
+          password: password,
+        });
+
       if (authError) {
         setError(authError.message);
         setLoading(false);
@@ -35,23 +42,22 @@ const AdminLogin = ({ onAdminLogin }) => {
 
       // Check if user is admin
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", authData.user.id)
         .single();
-      
+
       if (profileError || !profile?.is_admin) {
-        setError('Access denied. Admin privileges required.');
+        setError("Access denied. Admin privileges required.");
         await supabase.auth.signOut();
         setLoading(false);
         return;
       }
 
       onAdminLogin(profile);
-      
     } catch (error) {
-      console.error('Login error:', error);
-      setError('An unexpected error occurred. Please try again.');
+      console.error("Login error:", error);
+      setError("An error occurred during login");
     } finally {
       setLoading(false);
     }
@@ -62,38 +68,50 @@ const AdminLogin = ({ onAdminLogin }) => {
       <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Admin Login</h1>
-          <p className="text-purple-200">Sign in to manage wine events</p>
+          <p className="text-purple-200">Access the admin dashboard</p>
         </div>
-        
-        {error && (
-          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
-            {error}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+              placeholder="admin@example.com"
+              required
+            />
           </div>
-        )}
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            required
-          />
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+              <p className="text-white text-sm">{error}</p>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white py-3 px-6 rounded-xl font-semibold transition-all"
+            className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white py-4 px-6 rounded-lg font-semibold hover:bg-white/30 transition-all disabled:opacity-50"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
         <div className="mt-4 p-3 bg-white/5 rounded-lg">
@@ -105,11 +123,54 @@ const AdminLogin = ({ onAdminLogin }) => {
   );
 };
 
+// Component to handle URL parameters for booth mode
+const UserRouteWithParams = ({
+  onEventJoined,
+  currentEvent,
+  onRateWine,
+  onBackToJoin,
+  showRatingForm,
+  selectedWine,
+  backToUser,
+}) => {
+  const [searchParams] = useSearchParams();
+  const boothCode = searchParams.get("boothCode");
+
+  // If showing rating form
+  if (showRatingForm) {
+    return (
+      <WineRatingForm
+        wine={selectedWine}
+        onBack={backToUser}
+        onRatingSaved={backToUser}
+      />
+    );
+  }
+
+  // If no current event, show join form with booth code detection
+  if (!currentEvent) {
+    return (
+      <EnhancedJoinEventForm
+        onEventJoined={onEventJoined}
+        boothCode={boothCode}
+      />
+    );
+  }
+
+  // Show user interface for current event
+  return (
+    <UserInterface
+      event={currentEvent}
+      onRateWine={onRateWine}
+      onBackToJoin={onBackToJoin}
+    />
+  );
+};
+
 function App() {
   const [adminUser, setAdminUser] = useState(null);
   const [selectedWine, setSelectedWine] = useState(null);
   const [currentEvent, setCurrentEvent] = useState(null);
-  const [userSession, setUserSession] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showRatingForm, setShowRatingForm] = useState(false);
 
@@ -123,20 +184,16 @@ function App() {
     setShowRatingForm(true);
   };
 
-  const handleEventJoined = (event, session) => {
-    console.log('Event joined:', event, 'Session:', session);
+  const handleEventJoined = (event) => {
     setCurrentEvent(event);
-    setUserSession(session);
   };
 
   const backToAdmin = () => setShowCreateForm(false);
   const backToUser = () => setShowRatingForm(false);
-  
+
   const backToJoin = () => {
-    console.log('backToJoin called - resetting to join form');
+    console.log("backToJoin called - resetting to join form");
     setCurrentEvent(null);
-    setUserSession(null);
-    localStorage.removeItem('wineAppSession');
   };
 
   const handleAdminLogin = (user) => {
@@ -146,11 +203,9 @@ function App() {
   const handleLogout = () => {
     setAdminUser(null);
     setCurrentEvent(null);
-    setUserSession(null);
     setSelectedWine(null);
     setShowCreateForm(false);
     setShowRatingForm(false);
-    localStorage.removeItem('wineAppSession');
   };
 
   // Admin Route Component
@@ -158,7 +213,7 @@ function App() {
     // If admin is logged in and showing create form
     if (showCreateForm) {
       return (
-        <EnhancedCreateEventForm 
+        <EnhancedCreateEventForm
           user={adminUser}
           onBack={backToAdmin}
           onEventCreated={backToAdmin}
@@ -172,36 +227,8 @@ function App() {
     }
 
     // Admin is logged in, show dashboard
-    return <AdminDashboard onCreateEvent={goToCreateForm} onLogout={handleLogout} />;
-  };
-
-  // User Route Component  
-  const UserRoute = () => {
-    // If showing rating form
-    if (showRatingForm) {
-      return (
-        <WineRatingForm 
-          wine={selectedWine}
-          onBack={backToUser}
-          onRatingSaved={backToUser}
-          userSession={userSession}
-        />
-      );
-    }
-
-    // If no current event, show booth mode detector (which handles both modes)
-    if (!currentEvent) {
-      return <BoothModeDetector onEventJoined={handleEventJoined} />;
-    }
-
-    // Show user interface for current event
     return (
-      <UserInterface
-        event={currentEvent}
-        userSession={userSession}
-        onRateWine={goToRatingForm}
-        onBackToJoin={backToJoin}
-      />
+      <AdminDashboard onCreateEvent={goToCreateForm} onLogout={handleLogout} />
     );
   };
 
@@ -211,7 +238,20 @@ function App() {
         <Routes>
           <Route path="/app_preview" element={<AppPreview />} />
           <Route path="/admin" element={<AdminRoute />} />
-          <Route path="/" element={<UserRoute />} />
+          <Route
+            path="/"
+            element={
+              <UserRouteWithParams
+                onEventJoined={handleEventJoined}
+                currentEvent={currentEvent}
+                onRateWine={goToRatingForm}
+                onBackToJoin={backToJoin}
+                showRatingForm={showRatingForm}
+                selectedWine={selectedWine}
+                backToUser={backToUser}
+              />
+            }
+          />
           {/* Redirect any unknown routes to user interface */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
