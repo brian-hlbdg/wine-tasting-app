@@ -13,6 +13,7 @@ import WineRatingForm from "./WineRatingForm";
 import EnhancedJoinEventForm from "./EnhancedJoinEventForm"; // New import
 import AppPreview from "./AppPreview";
 import { supabase } from "./supabaseClient";
+import "./App.css"; // or './index.css'
 
 // Admin Login Component
 const AdminLogin = ({ onAdminLogin }) => {
