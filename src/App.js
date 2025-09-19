@@ -3,62 +3,53 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Navigate,
   useSearchParams,
 } from "react-router-dom";
-import AdminDashboard from "./AdminDashboard";
-import EnhancedCreateEventForm from "./EnhancedCreateEventForm"; // Updated import
+import "./App.css";
+import EnhancedJoinEventForm from "./EnhancedJoinEventForm";
 import UserInterface from "./UserInterface";
-import WineRatingForm from "./WineRatingForm";
-import EnhancedJoinEventForm from "./EnhancedJoinEventForm"; // New import
-import AppPreview from "./AppPreview";
+import WineDetailsInterface from "./WineDetailsInterface";
+import EnhancedCreateEventForm from "./EnhancedCreateEventForm";
+import EnhancedAdminDashboard from "./EnhancedAdminDashboard";
 import { supabase } from "./supabaseClient";
-import "./App.css"; // or './index.css'
+import { User } from "lucide-react";
 
 // Admin Login Component
-const AdminLogin = ({ onAdminLogin }) => {
+const AdminLogin = ({ onLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      // Use Supabase authentication
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: email,
-          password: password,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      if (authError) {
-        setError(authError.message);
-        setLoading(false);
-        return;
-      }
+      if (error) throw error;
 
       // Check if user is admin
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", authData.user.id)
+        .eq("id", data.user.id)
         .single();
 
-      if (profileError || !profile?.is_admin) {
-        setError("Access denied. Admin privileges required.");
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
+      if (profileError) throw profileError;
+
+      if (!profile.is_admin) {
+        throw new Error("Access denied. Admin privileges required.");
       }
 
-      onAdminLogin(profile);
+      onLogin(profile);
     } catch (error) {
-      console.error("Login error:", error);
-      setError("An error occurred during login");
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -68,11 +59,18 @@ const AdminLogin = ({ onAdminLogin }) => {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Admin Login</h1>
-          <p className="text-purple-200">Access the admin dashboard</p>
+          <User className="w-16 h-16 text-white mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-white mb-2">Admin Portal</h1>
+          <p className="text-purple-200">Sign in to manage wine events</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-white mb-2">
               Email
@@ -81,12 +79,11 @@ const AdminLogin = ({ onAdminLogin }) => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="admin@example.com"
               required
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-white mb-2">
               Password
@@ -95,22 +92,15 @@ const AdminLogin = ({ onAdminLogin }) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
-              placeholder="Enter your password"
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="••••••••"
               required
             />
           </div>
-
-          {error && (
-            <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-              <p className="text-white text-sm">{error}</p>
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-white/20 backdrop-blur-sm border border-white/30 text-white py-4 px-6 rounded-lg font-semibold hover:bg-white/30 transition-all disabled:opacity-50"
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white py-3 px-6 rounded-xl font-semibold transition-all"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
@@ -133,6 +123,7 @@ const UserRouteWithParams = ({
   showRatingForm,
   selectedWine,
   backToUser,
+  userSession,
 }) => {
   const [searchParams] = useSearchParams();
   const boothCode = searchParams.get("boothCode");
@@ -140,8 +131,9 @@ const UserRouteWithParams = ({
   // If showing rating form
   if (showRatingForm) {
     return (
-      <WineRatingForm
+      <WineDetailsInterface
         wine={selectedWine}
+        userSession={userSession}
         onBack={backToUser}
         onRatingSaved={backToUser}
       />
@@ -172,6 +164,7 @@ function App() {
   const [adminUser, setAdminUser] = useState(null);
   const [selectedWine, setSelectedWine] = useState(null);
   const [currentEvent, setCurrentEvent] = useState(null);
+  const [userSession, setUserSession] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showRatingForm, setShowRatingForm] = useState(false);
 
@@ -185,8 +178,20 @@ function App() {
     setShowRatingForm(true);
   };
 
-  const handleEventJoined = (event) => {
+  const handleEventJoined = (event, session = null) => {
     setCurrentEvent(event);
+
+    // Set user session from the join process
+    if (session) {
+      setUserSession(session);
+    } else if (event?.userEmail) {
+      // Fallback for booth mode
+      setUserSession({
+        email: event.userEmail,
+        isBoothMode: event.is_booth_mode,
+        eventId: event.id,
+      });
+    }
   };
 
   const backToAdmin = () => setShowCreateForm(false);
@@ -195,6 +200,9 @@ function App() {
   const backToJoin = () => {
     console.log("backToJoin called - resetting to join form");
     setCurrentEvent(null);
+    setUserSession(null);
+    // Clear any stored session
+    localStorage.removeItem("wineAppSession");
   };
 
   const handleAdminLogin = (user) => {
@@ -204,9 +212,12 @@ function App() {
   const handleLogout = () => {
     setAdminUser(null);
     setCurrentEvent(null);
+    setUserSession(null);
     setSelectedWine(null);
     setShowCreateForm(false);
     setShowRatingForm(false);
+    // Clear any stored session
+    localStorage.removeItem("wineAppSession");
   };
 
   // Admin Route Component
@@ -222,25 +233,30 @@ function App() {
       );
     }
 
-    // If admin is not logged in, show login screen
-    if (!adminUser) {
-      return <AdminLogin onAdminLogin={handleAdminLogin} />;
+    // If admin is logged in, show dashboard
+    if (adminUser) {
+      return (
+        <EnhancedAdminDashboard
+          onCreateEvent={goToCreateForm}
+          onLogout={handleLogout}
+        />
+      );
     }
 
-    // Admin is logged in, show dashboard
-    return (
-      <AdminDashboard onCreateEvent={goToCreateForm} onLogout={handleLogout} />
-    );
+    // Show admin login
+    return <AdminLogin onLogin={handleAdminLogin} />;
   };
 
   return (
     <Router>
       <div className="App">
         <Routes>
-          <Route path="/app_preview" element={<AppPreview />} />
+          {/* Admin route */}
           <Route path="/admin" element={<AdminRoute />} />
+
+          {/* User route - handles both standard and booth mode */}
           <Route
-            path="/"
+            path="/*"
             element={
               <UserRouteWithParams
                 onEventJoined={handleEventJoined}
@@ -250,11 +266,10 @@ function App() {
                 showRatingForm={showRatingForm}
                 selectedWine={selectedWine}
                 backToUser={backToUser}
+                userSession={userSession}
               />
             }
           />
-          {/* Redirect any unknown routes to user interface */}
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </Router>
