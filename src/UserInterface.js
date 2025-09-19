@@ -230,29 +230,21 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 py-2">
-        {/* Line 1: Event Title (left) + Signed in + User Icon (right) */}
+        {/* Line 1: Event Title (left) + User Icon (right) */}
         <div className="flex items-center justify-between mb-1">
-          <h1 className="text-lg font-bold text-gray-900">
+          <h1 className="text-lg font-bold text-gray-900 truncate pr-2">
             {event?.event_name}
           </h1>
 
-          <div className="flex items-center gap-3">
-            {userSession?.email && (
-              <div className="text-xs text-gray-600">
-                Signed in as:{" "}
-                <span className="font-medium">{userSession.email}</span>
-              </div>
-            )}
-            <button
-              onClick={() => setCurrentView("profile")}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <User size={16} className="text-gray-700" />
-            </button>
-          </div>
+          <button
+            onClick={() => setCurrentView("profile")}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+          >
+            <User size={16} className="text-gray-700" />
+          </button>
         </div>
 
-        {/* Line 2: Date (left) + Leave Event (right) */}
+        {/* Line 2: Date (left) + Signed in (right, truncated) */}
         <div className="flex items-center justify-between mb-1">
           {event?.event_date && (
             <p className="text-sm text-gray-500">
@@ -260,32 +252,44 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
             </p>
           )}
 
+          {userSession?.email && (
+            <div className="text-xs text-gray-600 truncate max-w-[60%] text-right">
+              Signed in as:{" "}
+              <span className="font-medium">{userSession.email}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Line 3: Description (left) + Leave Event (right) */}
+        <div className="flex items-start justify-between">
+          {/* Event Description - Truncated with Read More */}
+          <div className="flex-1 pr-2">
+            {event?.description && (
+              <div className="flex items-start gap-2 text-sm">
+                <span className="text-gray-600 leading-relaxed">
+                  {event.description.substring(0, 45)}
+                  {event.description.length > 45 ? "..." : ""}
+                </span>
+                {event.description.length > 45 && (
+                  <button
+                    onClick={() => setShowEventDescModal(true)}
+                    className="text-purple-600 hover:text-purple-800 font-medium underline flex-shrink-0"
+                  >
+                    Read more
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={onBackToJoin}
-            className="flex items-center gap-1 text-gray-600 hover:text-gray-800 transition-colors text-sm"
+            className="flex items-center gap-1 text-gray-600 hover:text-gray-800 transition-colors text-sm flex-shrink-0"
           >
             <ArrowLeft size={14} />
             <span>Leave Event</span>
           </button>
         </div>
-
-        {/* Line 3: Event Description (left aligned) */}
-        {event?.description && (
-          <div className="flex items-start gap-2 text-sm">
-            <span className="text-gray-600 leading-relaxed">
-              {event.description.substring(0, 60)}
-              {event.description.length > 60 ? "..." : ""}
-            </span>
-            {event.description.length > 60 && (
-              <button
-                onClick={() => setShowEventDescModal(true)}
-                className="text-purple-600 hover:text-purple-800 font-medium underline flex-shrink-0"
-              >
-                Read more
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Content */}
