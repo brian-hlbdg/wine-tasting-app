@@ -94,8 +94,8 @@ const BoothThankYouModal = ({
               className="text-sm opacity-75"
               style={{ color: boothCustomization.textColor }}
             >
-              Your thoughtful ratings help us curate better wine experiences for
-              everyone.
+              Don't forget your free wine stopper when you purchase a sparkling
+              wine.
             </p>
           </div>
 
@@ -149,25 +149,38 @@ const BoothThankYouModal = ({
               className="text-base font-medium mb-2"
               style={{ color: boothCustomization.textColor }}
             >
-              We look forward to more tastings with you!
+              <a
+                href="https://drinksonmeliquors.com/collections/loveluvv"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Visit our products on the Clinkfest website.
+              </a>
             </p>
             <p
               className="text-sm opacity-80"
               style={{ color: boothCustomization.textColor }}
             >
-              Keep an eye out for our upcoming wine events and exclusive
-              tastings.
+              <a
+                href="https://drinksonmeliquors.com/collections/loveluvv"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Click here to purchase our products.
+              </a>
             </p>
           </div>
 
           {/* Optional action button */}
           <div className="space-y-3">
             <button
-              onClick={onClose}
+              onClick={() =>
+                window.open("https://loveluvvsparkling.wine", "_blank")
+              }
               className="w-full bg-white/20 backdrop-blur-sm border border-white/30 px-6 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 transform hover:scale-105"
               style={{ color: boothCustomization.textColor }}
             >
-              Learn More About the Wines
+              Learn More About our Wines
             </button>
 
             <p
