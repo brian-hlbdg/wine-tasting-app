@@ -244,22 +244,6 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
           </button>
         </div>
 
-        {/* Line 2: Date (left) + Signed in (right, truncated) */}
-        <div className="flex items-center justify-between mb-1">
-          {event?.event_date && (
-            <p className="text-sm text-gray-500">
-              {new Date(event.event_date).toLocaleDateString()}
-            </p>
-          )}
-
-          {userSession?.email && (
-            <div className="text-xs text-gray-600 truncate max-w-[60%] text-right">
-              Signed in as:{" "}
-              <span className="font-medium">{userSession.email}</span>
-            </div>
-          )}
-        </div>
-
         {/* Line 3: Description (left) + Leave Event (right) */}
         <div className="flex items-start justify-between">
           {/* Event Description - Truncated with Read More */}
