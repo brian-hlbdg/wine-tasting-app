@@ -1,15 +1,120 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
-import { Plus, Wine, LogOut, Calendar, MapPin, Edit, Trash2, BarChart3 } from 'lucide-react';
-import AdminAnalytics from './AdminAnalytics';
-import EnhancedCreateEventForm from './EnhancedCreateEventForm';
+import React, { useState, useEffect } from "react";
+// import { supabase } from './supabaseClient';  // Commented for demo
+import {
+  Plus,
+  Wine,
+  LogOut,
+  Calendar,
+  MapPin,
+  Edit,
+  Trash2,
+  BarChart3,
+  TrendingUp,
+} from "lucide-react";
+import AdminAnalytics from "./AdminAnalytics";
+import EnhancedCreateEventForm from "./EnhancedCreateEventForm";
+import EventAnalyticsDashboard from "./EventAnalyticsDashboard";
+
+// Demo supabase mock
+const supabase = {
+  auth: {
+    getSession: () =>
+      Promise.resolve({ data: { session: { user: { id: "demo-user" } } } }),
+    signInWithPassword: () =>
+      Promise.resolve({ data: { user: { id: "demo-user" } }, error: null }),
+    signOut: () => Promise.resolve(),
+  },
+  from: (table) => ({
+    select: (fields) => ({
+      eq: (field, value) => ({
+        single: () =>
+          Promise.resolve({
+            data: {
+              id: "demo-user",
+              is_admin: true,
+              display_name: "Demo Admin",
+            },
+            error: null,
+          }),
+        order: (field, options) =>
+          Promise.resolve({
+            data: generateDemoEvents(),
+            error: null,
+          }),
+      }),
+      order: (field, options) =>
+        Promise.resolve({
+          data: generateDemoEvents(),
+          error: null,
+        }),
+    }),
+    delete: () => ({
+      eq: () => Promise.resolve({ error: null }),
+    }),
+    update: (data) => ({
+      eq: () => Promise.resolve({ error: null }),
+    }),
+  }),
+};
+
+const generateDemoEvents = () => [
+  {
+    id: 1,
+    event_name: "Bordeaux Wine Tasting",
+    event_date: "2024-03-15",
+    location: "Downtown Wine Bar",
+    description: "Explore the finest Bordeaux wines",
+    event_code: "BDX2024",
+    is_active: true,
+    event_wines: [
+      { id: 1, wine_name: "Château Margaux 2015" },
+      { id: 2, wine_name: "Pichon Baron 2016" },
+      { id: 3, wine_name: "Cos d'Estournel 2017" },
+    ],
+    event_locations: [],
+  },
+  {
+    id: 2,
+    event_name: "Napa Valley Experience",
+    event_date: "2024-03-22",
+    location: "Wine Country",
+    description: "Premium Napa Valley wine crawl",
+    event_code: "NAPA24",
+    is_active: true,
+    event_wines: [
+      { id: 4, wine_name: "Opus One 2018" },
+      { id: 5, wine_name: "Caymus Cabernet 2020" },
+    ],
+    event_locations: [
+      { id: 1, name: "Vineyard A" },
+      { id: 2, name: "Vineyard B" },
+    ],
+  },
+  {
+    id: 3,
+    event_name: "Champagne & Bubbles",
+    event_date: "2024-03-29",
+    location: "Luxury Hotel",
+    description: "Celebration of sparkling wines",
+    event_code: "CHAMP24",
+    is_active: false,
+    event_wines: [
+      { id: 6, wine_name: "Dom Pérignon 2012" },
+      { id: 7, wine_name: "Krug Grande Cuvée" },
+    ],
+    event_locations: [],
+  },
+];
 
 const AdminDashboard = ({ onCreateEvent, onLogout }) => {
   const [user, setUser] = useState(null);
-  const [currentView, setCurrentView] = useState('events');
+  const [currentView, setCurrentView] = useState("events");
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedEventForAnalytics, setSelectedEventForAnalytics] = useState(null);
+  const [selectedEventForAnalytics, setSelectedEventForAnalytics] =
+    useState(null);
+  const [selectedEventForDashboard, setSelectedEventForDashboard] =
+    useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
 
   useEffect(() => {
@@ -23,14 +128,16 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
   }, [user]);
 
   const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session?.user) {
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
         .single();
-      
+
       if (profile?.is_admin) {
         setUser(profile);
       }
@@ -40,16 +147,18 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
 
   const loadEvents = async () => {
     const { data, error } = await supabase
-      .from('tasting_events')
-      .select(`
+      .from("tasting_events")
+      .select(
+        `
         *,
         event_wines (*),
         event_locations (*)
-      `)
-      .order('event_date', { ascending: false });
-    
+      `
+      )
+      .order("event_date", { ascending: false });
+
     if (error) {
-      console.error('Error loading events:', error);
+      console.error("Error loading events:", error);
     } else {
       setEvents(data || []);
     }
@@ -60,9 +169,9 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
       email: email,
       password: password,
     });
-    
+
     if (error) {
-      alert('Error: ' + error.message);
+      alert("Error: " + error.message);
     } else {
       checkUser();
     }
@@ -72,36 +181,36 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
     await supabase.auth.signOut();
     setUser(null);
     if (onLogout) {
-      onLogout(); // This will redirect back to /admin login
+      onLogout();
     }
   };
 
   const deleteEvent = async (eventId) => {
-    if (!window.confirm('Are you sure you want to delete this event?')) {
+    if (!window.confirm("Are you sure you want to delete this event?")) {
       return;
     }
-    
+
     const { error } = await supabase
-      .from('tasting_events')
+      .from("tasting_events")
       .delete()
-      .eq('id', eventId);
-      
+      .eq("id", eventId);
+
     if (error) {
-      alert('Error deleting event: ' + error.message);
+      alert("Error deleting event: " + error.message);
     } else {
-      alert('Event deleted successfully');
+      alert("Event deleted successfully");
       loadEvents();
     }
   };
 
   const toggleEventActive = async (eventId, currentStatus) => {
     const { error } = await supabase
-      .from('tasting_events')
+      .from("tasting_events")
       .update({ is_active: !currentStatus })
-      .eq('id', eventId);
-      
+      .eq("id", eventId);
+
     if (error) {
-      alert('Error updating event: ' + error.message);
+      alert("Error updating event: " + error.message);
     } else {
       loadEvents();
     }
@@ -110,24 +219,24 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
   // Event management functions
   const startEditingEvent = (event) => {
     setEditingEvent(event);
-    setCurrentView('edit-event');
+    setCurrentView("edit-event");
   };
 
   const startCreatingEvent = () => {
     setEditingEvent(null);
-    setCurrentView('create-event');
+    setCurrentView("create-event");
   };
 
   const handleEventUpdated = () => {
     setEditingEvent(null);
-    setCurrentView('events');
-    loadEvents(); // Refresh the events list
+    setCurrentView("events");
+    loadEvents();
   };
 
   // Login Form Component
   const LoginForm = () => {
-    const [email, setEmail] = useState('admin@winetasting.com');
-    const [password, setPassword] = useState('admin123');
+    const [email, setEmail] = useState("admin@winetasting.com");
+    const [password, setPassword] = useState("admin123");
 
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -137,7 +246,7 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
             <h1 className="text-2xl font-bold text-gray-900">Admin Login</h1>
             <p className="text-gray-600">Sign in to manage wine events</p>
           </div>
-          
+
           <div className="space-y-4">
             <input
               type="email"
@@ -160,9 +269,11 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
               Sign In
             </button>
           </div>
-          
+
           <div className="mt-4 p-3 bg-blue-50 rounded text-sm">
-            <p><strong>Demo Credentials:</strong></p>
+            <p>
+              <strong>Demo Credentials:</strong>
+            </p>
             <p>Email: admin@winetasting.com</p>
             <p>Password: admin123</p>
           </div>
@@ -188,8 +299,12 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
       {events.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border">
           <Wine className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">No events yet</h3>
-          <p className="text-gray-500 mb-4">Create your first wine tasting event</p>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">
+            No events yet
+          </h3>
+          <p className="text-gray-500 mb-4">
+            Create your first wine tasting event
+          </p>
           <button
             onClick={startCreatingEvent}
             className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
@@ -200,37 +315,44 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
       ) : (
         <div className="grid gap-4">
           {events.map((event) => (
-            <div key={event.id} className="bg-white p-6 rounded-lg border shadow-sm">
+            <div
+              key={event.id}
+              className="bg-white p-6 rounded-lg border shadow-sm"
+            >
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{event.event_name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    {event.event_name}
+                  </h3>
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      <span>{event.event_date ? new Date(event.event_date).toLocaleDateString() : 'No date'}</span>
-                    </div>
-                    {event.location && (
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        <span>{event.location}</span>
-                      </div>
-                    )}
-                  </div>
-                  {/* Show if it's a wine crawl */}
-                  {event.event_locations && event.event_locations.length > 0 && (
-                    <div className="mt-2">
-                      <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                        <MapPin className="w-3 h-3" />
-                        Wine Crawl • {event.event_locations.length} locations
+                      <span>
+                        {event.event_date
+                          ? new Date(event.event_date).toLocaleDateString()
+                          : "No date set"}
                       </span>
                     </div>
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      <span>{event.location || "No location set"}</span>
+                    </div>
+                  </div>
+                  {event.description && (
+                    <p className="text-gray-600 mt-2 text-sm">
+                      {event.description}
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    event.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {event.is_active ? 'Active' : 'Inactive'}
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      event.is_active
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {event.is_active ? "Active" : "Inactive"}
                   </span>
                   {event.event_code && (
                     <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">
@@ -246,39 +368,56 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
                     <Wine className="w-4 h-4 text-purple-600" />
                     <span>{event.event_wines?.length || 0} wines</span>
                   </div>
-                  {event.event_locations && event.event_locations.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4 text-green-600" />
-                      <span>{event.event_locations.length} stops</span>
-                    </div>
-                  )}
+                  {event.event_locations &&
+                    event.event_locations.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4 text-green-600" />
+                        <span>{event.event_locations.length} stops</span>
+                      </div>
+                    )}
                 </div>
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => startEditingEvent(event)}
                     className="p-2 text-purple-600 hover:bg-purple-50 rounded"
                     title="Edit Event & Manage Locations"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
-                      setSelectedEventForAnalytics(event);
-                      setCurrentView('analytics');
+                      setSelectedEventForDashboard(event);
+                      setCurrentView("dashboard");
                     }}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                    title="View Analytics"
+                    title="View Analytics Dashboard"
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedEventForAnalytics(event);
+                      setCurrentView("analytics");
+                    }}
+                    className="p-2 text-green-600 hover:bg-green-50 rounded"
+                    title="View Basic Analytics"
                   >
                     <BarChart3 className="w-4 h-4" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => toggleEventActive(event.id, event.is_active)}
                     className="p-2 text-gray-600 hover:bg-gray-100 rounded"
-                    title={event.is_active ? "Deactivate Event" : "Activate Event"}
+                    title={
+                      event.is_active ? "Deactivate Event" : "Activate Event"
+                    }
                   >
-                    {event.is_active ? <Trash2 className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+                    {event.is_active ? (
+                      <Trash2 className="w-4 h-4" />
+                    ) : (
+                      <Edit className="w-4 h-4" />
+                    )}
                   </button>
-                  <button 
+                  <button
                     onClick={() => deleteEvent(event.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded"
                     title="Delete Event"
@@ -296,7 +435,11 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
 
   // Main component render
   if (loading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   if (!user) {
@@ -320,42 +463,50 @@ const AdminDashboard = ({ onCreateEvent, onLogout }) => {
           </button>
         </div>
       </nav>
-      
+
       <main className="max-w-6xl mx-auto p-4">
         {/* Events List View */}
-        {currentView === 'events' && <EventsList />}
-        
+        {currentView === "events" && <EventsList />}
+
         {/* Create Event View */}
-        {currentView === 'create-event' && (
-          <EnhancedCreateEventForm 
+        {currentView === "create-event" && (
+          <EnhancedCreateEventForm
             user={user}
-            onBack={() => setCurrentView('events')}
+            onBack={() => setCurrentView("events")}
             onEventCreated={handleEventUpdated}
           />
         )}
-        
+
         {/* Edit Event View */}
-        {currentView === 'edit-event' && editingEvent && (
-          <EnhancedCreateEventForm 
+        {currentView === "edit-event" && editingEvent && (
+          <EnhancedCreateEventForm
             user={user}
-            onBack={() => setCurrentView('events')}
+            onBack={() => setCurrentView("events")}
             onEventCreated={handleEventUpdated}
             editingEvent={editingEvent}
           />
         )}
-        
-        {/* Analytics View */}
-        {currentView === 'analytics' && (
+
+        {/* Analytics Dashboard View */}
+        {currentView === "dashboard" && selectedEventForDashboard && (
+          <EventAnalyticsDashboard
+            event={selectedEventForDashboard}
+            onBack={() => setCurrentView("events")}
+          />
+        )}
+
+        {/* Basic Analytics View */}
+        {currentView === "analytics" && selectedEventForAnalytics && (
           <div>
             <div className="flex items-center gap-3 mb-4">
               <button
-                onClick={() => setCurrentView('events')}
+                onClick={() => setCurrentView("events")}
                 className="text-gray-600 hover:text-gray-800"
               >
                 ← Back to Events
               </button>
               <h2 className="text-xl font-bold">
-                Analytics: {selectedEventForAnalytics?.event_name}
+                Basic Analytics: {selectedEventForAnalytics?.event_name}
               </h2>
             </div>
             <AdminAnalytics event={selectedEventForAnalytics} />
