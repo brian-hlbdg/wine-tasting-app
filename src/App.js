@@ -10,7 +10,7 @@ import EnhancedJoinEventForm from "./EnhancedJoinEventForm";
 import UserInterface from "./UserInterface";
 import WineDetailsInterface from "./WineDetailsInterface";
 import EnhancedCreateEventForm from "./EnhancedCreateEventForm";
-import EnhancedAdminDashboard from "./EnhancedAdminDashboard";
+import AdminDashboardRedesign from "./AdminDashboardRedesign";
 import { supabase } from "./supabaseClient";
 import { User } from "lucide-react";
 
@@ -236,7 +236,7 @@ function App() {
     // If admin is logged in, show dashboard
     if (adminUser) {
       return (
-        <EnhancedAdminDashboard
+        <AdminDashboardRedesign
           onCreateEvent={goToCreateForm}
           onLogout={handleLogout}
         />
