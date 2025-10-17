@@ -11,6 +11,7 @@ import UserInterface from "./UserInterface";
 import WineDetailsInterface from "./WineDetailsInterface";
 import EnhancedCreateEventForm from "./EnhancedCreateEventForm";
 import AdminDashboardRedesign from "./AdminDashboardRedesign";
+import AppPreview from "./AppPreview";
 import { supabase } from "./supabaseClient";
 import { User } from "lucide-react";
 
@@ -253,6 +254,8 @@ function App() {
         <Routes>
           {/* Admin route */}
           <Route path="/admin" element={<AdminRoute />} />
+          {/* Prev route */}
+          <Route path="/preview" element={<AppPreview />} />
 
           {/* User route - handles both standard and booth mode */}
           <Route
