@@ -77,7 +77,7 @@ const SubmitWineFlow = ({ isOpen, onClose, eventId, userId, initialWineName = ''
     }
   };
 
-  const highestSimilarity = similarWines.length > 0 ? similarWines[0].similarity : 0;
+  const highestSimilarity = similarWines.length > 0 ? similarWines[0].sim : 0;
   const isBlocked = highestSimilarity >= FUZZY_BLOCK && !userConfirmedDifferent;
 
   const handleSelectExisting = (wine) => {
