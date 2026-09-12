@@ -17,6 +17,7 @@ import {
 import { supabase } from "./supabaseClient";
 import AdminAnalytics from "./AdminAnalytics";
 import EnhancedCreateEventForm from "./EnhancedCreateEventForm";
+import CuratorQueue from "./CuratorQueue";
 
 const AdminDashboardRedesign = ({ onLogout }) => {
   const [user, setUser] = useState(null);
@@ -242,6 +243,33 @@ const AdminDashboardRedesign = ({ onLogout }) => {
     );
   }
 
+  // Curator Queue View
+  if (currentView === "wine-queue" && user?.role === "curator") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100">
+        <div className="bg-white/80 backdrop-blur-sm border-b border-amber-200/50 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+            <button
+              onClick={() => setCurrentView("events")}
+              className="text-gray-700 hover:text-amber-700 font-medium text-sm"
+            >
+              ← Back to Events
+            </button>
+            <button
+              onClick={signOut}
+              className="text-gray-700 hover:text-amber-700 text-sm"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <CuratorQueue />
+        </div>
+      </div>
+    );
+  }
+
   // Events List View
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100">
@@ -265,9 +293,20 @@ const AdminDashboardRedesign = ({ onLogout }) => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-2 lg:gap-4">
-              <button className="bg-amber-700 hover:bg-amber-800 text-white px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              <button
+                onClick={() => setCurrentView("events")}
+                className={`px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentView === "events" ? "bg-amber-700 text-white" : "text-gray-700 hover:text-amber-700"}`}
+              >
                 Events
               </button>
+              {user?.role === "curator" && (
+                <button
+                  onClick={() => setCurrentView("wine-queue")}
+                  className={`px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentView === "wine-queue" ? "bg-purple-700 text-white" : "text-gray-700 hover:text-purple-700"}`}
+                >
+                  Wine Queue
+                </button>
+              )}
               <button
                 onClick={signOut}
                 className="flex items-center gap-2 text-gray-700 hover:text-amber-700 px-3 lg:px-4 py-2 transition-colors text-sm"
@@ -292,9 +331,20 @@ const AdminDashboardRedesign = ({ onLogout }) => {
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
             <div className="md:hidden mt-4 pb-2 space-y-2 border-t border-amber-200/50 pt-4">
-              <button className="w-full bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+              <button
+                onClick={() => { setCurrentView("events"); setMobileMenuOpen(false); }}
+                className="w-full bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              >
                 Events
               </button>
+              {user?.role === "curator" && (
+                <button
+                  onClick={() => { setCurrentView("wine-queue"); setMobileMenuOpen(false); }}
+                  className="w-full bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                >
+                  Wine Queue
+                </button>
+              )}
               <button
                 onClick={signOut}
                 className="w-full text-gray-700 hover:bg-amber-50 px-4 py-2 rounded-lg text-sm"
