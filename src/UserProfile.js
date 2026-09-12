@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { User, Wine, TrendingUp, Heart } from 'lucide-react';
 
-const UserProfile = () => {
+const UserProfile = ({ userSession }) => {
   const [profile, setProfile] = useState({
     totalRatings: 0,
     averageRating: 0,
@@ -10,11 +10,29 @@ const UserProfile = () => {
     favoriteDescriptors: [],
     recentRatings: []
   });
+  const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadUserProfile();
   }, []);
+
+  useEffect(() => {
+    if (userSession?.userId) {
+      loadFavorites(userSession.userId);
+    }
+  }, [userSession?.userId]);
+
+  const loadFavorites = async (userId) => {
+    const { data } = await supabase
+      .from('user_favorites')
+      .select('id, created_at, event_wine_id, event_wines(wine_name, producer, vintage, wine_type)')
+      .eq('user_id', userId)
+      .not('event_wine_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    setFavorites(data || []);
+  };
 
   const loadUserProfile = async () => {
     try {
@@ -188,37 +206,34 @@ const UserProfile = () => {
         </div>
       )}
 
-      {/* Recent Favorites */}
-      {profile.recentRatings.length > 0 && (
-        <div className="bg-white p-6 rounded-lg border">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <Heart className="w-5 h-5 text-red-500" />
-            Recent Favorites (4+ stars)
-          </h3>
+      {/* Favorited Wines */}
+      <div className="bg-white p-6 rounded-lg border">
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+          Favorited Wines
+        </h3>
+        {favorites.length > 0 ? (
           <div className="space-y-3">
-            {profile.recentRatings.map((rating, index) => (
-              <div key={index} className="border-l-4 border-purple-200 pl-4 py-2">
-                <div className="font-medium">{rating.wine}</div>
-                {rating.producer && (
-                  <div className="text-sm text-gray-600">{rating.producer}</div>
-                )}
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <span key={i} className={`text-sm ${i < rating.rating ? 'text-yellow-400' : 'text-gray-300'}`}>
-                        ★
-                      </span>
-                    ))}
+            {favorites.map(fav => {
+              const w = fav.event_wines;
+              if (!w) return null;
+              return (
+                <div key={fav.id} className="border-l-4 border-red-200 pl-4 py-2">
+                  <div className="font-medium">{w.wine_name}</div>
+                  <div className="text-sm text-gray-500">
+                    {[w.producer, w.vintage, w.wine_type && w.wine_type.charAt(0).toUpperCase() + w.wine_type.slice(1)]
+                      .filter(Boolean).join(' · ')}
                   </div>
-                  {rating.notes && (
-                    <span className="text-xs text-gray-500 italic">"{rating.notes}"</span>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-gray-500">
+            Tap the heart on any wine to save it here.
+          </p>
+        )}
+      </div>
 
       {/* Recommendations Placeholder */}
       <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-lg border">

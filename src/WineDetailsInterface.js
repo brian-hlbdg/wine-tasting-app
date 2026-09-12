@@ -38,6 +38,9 @@ const WineDetailsInterface = ({
   const [selectedDescriptors, setSelectedDescriptors] = useState([]);
   const [isExpertMode, setIsExpertMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+  const [resolvedUserId, setResolvedUserId] = useState(userSession?.userId || null);
 
   // Initialize with current rating if exists
   useEffect(() => {
@@ -46,6 +49,43 @@ const WineDetailsInterface = ({
       setRatingNotes(currentRating.notes || "");
     }
   }, [currentRating]);
+
+  useEffect(() => {
+    if (resolvedUserId && wine?.id) {
+      supabase
+        .from('user_favorites')
+        .select('id')
+        .eq('user_id', resolvedUserId)
+        .eq('event_wine_id', wine.id)
+        .maybeSingle()
+        .then(({ data }) => setIsFavorited(!!data));
+    }
+  }, [resolvedUserId, wine?.id]);
+
+  const toggleFavorite = async () => {
+    if (isFavoriting) return;
+    setIsFavoriting(true);
+    try {
+      let uid = resolvedUserId;
+      if (!uid) {
+        const profile = await getOrCreateUserProfile();
+        uid = profile.id;
+        setResolvedUserId(uid);
+      }
+      if (isFavorited) {
+        await supabase.from('user_favorites').delete()
+          .eq('user_id', uid).eq('event_wine_id', wine.id);
+        setIsFavorited(false);
+      } else {
+        await supabase.from('user_favorites').insert({ user_id: uid, event_wine_id: wine.id });
+        setIsFavorited(true);
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    } finally {
+      setIsFavoriting(false);
+    }
+  };
 
   // Wine descriptors for expert mode
   const descriptorData = {
@@ -397,9 +437,14 @@ const WineDetailsInterface = ({
                 )}
               </button>
               <button
+                onClick={toggleFavorite}
+                disabled={isFavoriting}
                 className={`p-2.5 rounded-xl ${theme.button} transition-all duration-200 hover:scale-105`}
               >
-                <Heart size={20} className={theme.text} />
+                <Heart
+                  size={20}
+                  className={isFavorited ? 'text-red-500 fill-red-500' : theme.text}
+                />
               </button>
             </div>
           </div>

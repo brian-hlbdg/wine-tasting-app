@@ -5,6 +5,7 @@ import WineDetailsInterface from "./WineDetailsInterface";
 import UserProfile from "./UserProfile";
 import BoothThankYouModal from "./BoothThankYouModal"; // Import the modal we created
 import EventDescriptionModal from "./EventDescriptionModal"; // Import event description modal
+import SubmitWineFlow from "./SubmitWineFlow";
 
 const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
   const [currentView, setCurrentView] = useState("join");
@@ -15,6 +16,8 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
   const [userSession, setUserSession] = useState(null); // Current user session
   const [showThankYouModal, setShowThankYouModal] = useState(false); // Modal state
   const [showEventDescModal, setShowEventDescModal] = useState(false); // Event description modal
+  const [showSubmitFlow, setShowSubmitFlow] = useState(false);
+  const [submitFlowWineName, setSubmitFlowWineName] = useState('');
 
   useEffect(() => {
     if (event) {
@@ -476,6 +479,17 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
           )}
         </div>
 
+        {/* Can't find your wine? */}
+        <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+          <p className="text-sm text-gray-500 mb-2">Don't see a wine you're tasting?</p>
+          <button
+            onClick={() => { setSubmitFlowWineName(''); setShowSubmitFlow(true); }}
+            className="text-sm font-medium text-purple-600 hover:text-purple-800"
+          >
+            Can't find your wine? Submit it →
+          </button>
+        </div>
+
         {/* Progress Indicator at Bottom for Booth Mode */}
         {userSession?.isBoothMode && (
           <div className="mt-8 pt-6 border-t border-gray-200">
@@ -513,6 +527,16 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
         )}
       </div>
 
+      {/* Submit Wine Flow */}
+      <SubmitWineFlow
+        isOpen={showSubmitFlow}
+        onClose={() => setShowSubmitFlow(false)}
+        eventId={event?.id}
+        userId={userSession?.userId}
+        initialWineName={submitFlowWineName}
+        onWineSubmitted={() => setShowSubmitFlow(false)}
+      />
+
       {/* Event Description Modal */}
       <EventDescriptionModal
         isOpen={showEventDescModal}
@@ -545,7 +569,7 @@ const UserInterface = ({ event, onRateWine, onBackToJoin }) => {
           <h1 className="text-xl font-bold text-slate-900">Wine Profile</h1>
         </div>
       </div>
-      <UserProfile />
+      <UserProfile userSession={userSession} />
     </div>
   );
 
